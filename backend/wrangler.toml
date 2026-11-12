@@ -1,10 +1,10 @@
-name = "county-line-roleplay-portal"
+name = "clrp-player-portal-api"
 main = "worker.js"
 compatibility_date = "2026-11-11"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "county-line-roleplay-portal"
+database_name = "clrp-player-portal"
 database_id = "REPLACE_WITH_D1_DATABASE_ID"
 
 [vars]
