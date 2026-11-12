@@ -51,8 +51,5 @@
   loadStatus();
   if (config.statusApiUrl) window.setInterval(loadStatus, 60000);
 
-  $("portalButton")?.addEventListener("click", () => {
-    if (config.portalUrl) window.location.href = config.portalUrl;
-    else $("portalMessage").textContent = "Player accounts are not connected yet. The secure QBCore portal will be enabled after the API and authentication service are configured.";
-  });
+  $("portalButton")?.addEventListener("click", () => { window.location.href = "portal.html"; });
 })();
