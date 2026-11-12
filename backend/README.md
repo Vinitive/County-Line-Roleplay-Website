@@ -16,7 +16,7 @@ Discord OAuth backend for the GitHub Pages player portal. This Worker keeps the 
 6. Set secrets:
    - `wrangler secret put DISCORD_CLIENT_ID`
    - `wrangler secret put DISCORD_CLIENT_SECRET`
-7. Set `FRONTEND_ORIGIN` to the exact deployed website origin and `DISCORD_REDIRECT_URI` to the exact callback URL. Update the Discord OAuth redirect URL to match.
+7. Set `FRONTEND_ORIGIN` to the exact deployed website origin (for this repo: `https://vinitive.github.io`), `FRONTEND_PORTAL_URL` to the full portal page URL (including `/County-Line-Roleplay-Website/portal.html`), and `DISCORD_REDIRECT_URI` to the exact callback URL. Update the Discord OAuth redirect URL to match.
 8. Deploy: `wrangler deploy`.
 9. Test `https://YOUR-WORKER-HOST/health` and `https://YOUR-WORKER-HOST/auth/discord`.
 
