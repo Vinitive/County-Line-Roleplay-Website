@@ -9,4 +9,5 @@ database_id = "REPLACE_WITH_D1_DATABASE_ID"
 
 [vars]
 FRONTEND_ORIGIN = "https://vinitive.github.io"
+FRONTEND_PORTAL_URL = "https://vinitive.github.io/County-Line-Roleplay-Website/portal.html"
 DISCORD_REDIRECT_URI = "https://REPLACE_WITH_WORKER_HOST/auth/callback"
