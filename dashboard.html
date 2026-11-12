@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101113">
+<title>Player Dashboard | County Line Roleplay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css"><link rel="stylesheet" href="assets/css/portal.css">
+<script src="config.js"></script><script src="assets/js/dashboard.js" defer></script></head>
+<body class="portal-page"><header class="site-header">
+<a class="brand" href="index.html"><img class="brand-logo" src="assets/images/clrp-logo.webp" alt="County Line Roleplay"><span class="brand-copy"><strong>COUNTY LINE</strong><small>ROLEPLAY</small></span></a>
+<a class="header-portal" href="index.html">BACK TO HOME <span>↗</span></a></header>
+<main class="portal-main"><div class="portal-topline"><span class="section-kicker">COUNTY LINE ROLEPLAY / MEMBER SERVICES</span><span class="portal-secure"><i></i> SECURE PLAYER ACCESS</span></div>
+<section class="portal-dashboard" id="dashboard">
+<div class="dashboard-heading"><div><div class="section-kicker">MEMBER SERVICES / OVERVIEW</div><h1>PLAYER <em>DASHBOARD.</em></h1></div><button class="btn btn-outline" id="signOut" type="button">SIGN OUT ↗</button></div>
+<div class="player-welcome"><img id="discordAvatar" alt="Discord avatar"><div><small>CONNECTED DISCORD ACCOUNT</small><h2 id="discordName">Loading...</h2><span id="discordTag">Discord member</span></div><span class="account-status"><i></i> VERIFIED SESSION</span></div>
+<div class="dashboard-grid">
+<article class="dashboard-card"><div class="card-kicker">01 / PLAYER IDENTITY</div><h3>FIVE M LINK</h3><p id="linkStatus">Your Discord account is signed in. A secure in-game verification link is required before private character information can be displayed.</p><div class="link-code" id="linkCode" hidden></div><button class="btn btn-gold" id="startLink" type="button">LINK MY CHARACTER →</button><small class="card-note" id="linkNote">Character linking will be enabled when the QBCore verification resource is installed.</small></article>
+<article class="dashboard-card"><div class="card-kicker">02 / CHARACTER DATA</div><h3>YOUR COUNTY LIFE</h3><div class="data-placeholder"><span>—</span><p>Character information will appear here after your FiveM account is linked.</p></div></article>
+<article class="dashboard-card"><div class="card-kicker">03 / APPLICATIONS</div><h3>APPLICATION TRACKER</h3><div class="data-placeholder"><span>—</span><p>Department and whitelist application status will appear here when applications are connected.</p></div></article>
+</div><p class="dashboard-footnote" id="dashboardMessage">Checking your secure Discord session...</p>
+</section><footer class="portal-footer"><span>© <span id="year"></span> COUNTY LINE ROLEPLAY</span><span>SECURE MEMBER SERVICES</span></footer></main></body></html>
