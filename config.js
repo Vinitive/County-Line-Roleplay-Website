@@ -7,5 +7,5 @@ window.CLRP_CONFIG = {
   connectUrl: "",
   statusApiUrl: "",
   // Set this to the deployed Cloudflare Worker URL, without a trailing slash.
-  portalApiUrl: ""
+  portalApiUrl: "https://clrp-player-portal-api.blakealley2.workers.dev"
 };
