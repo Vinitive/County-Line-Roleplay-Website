@@ -6,6 +6,17 @@
   $("year").textContent = new Date().getFullYear();
 
   const showError = message => { $("authError").textContent = message || ""; };
+  const authResult = new URLSearchParams(window.location.search).get("auth");
+  if (authResult) {
+    const messages = {
+      failed: "Discord sign-in was cancelled or did not complete.",
+      invalid_state: "Your sign-in session expired. Please try again.",
+      discord_error: "Discord could not complete authentication. Please try again.",
+      profile_error: "We could not retrieve your Discord profile. Please try again."
+    };
+    showError(messages[authResult] || "Discord sign-in could not be completed.");
+    window.history.replaceState({}, document.title, window.location.pathname);
+  }
   const apiRequest = async (path, options = {}) => {
     if (!api) throw new Error("The portal API has not been configured yet. Ask a server administrator to finish the secure backend setup.");
     const response = await fetch(api + path, { ...options, credentials: "include", headers: { "Accept": "application/json", ...(options.headers || {}) } });
