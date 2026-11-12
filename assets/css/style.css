@@ -26,3 +26,33 @@
 .career-cta>p{margin:0 auto 25px}
 @media(max-width:900px){.career-department{padding-left:7%;padding-right:7%}.career-positions{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.careers-hero{padding:75px 7% 55px}.career-heading{align-items:flex-start;flex-direction:column}.career-positions{grid-template-columns:1fr}.position-card{min-height:215px}.career-department{padding-top:65px;padding-bottom:65px}.career-shortcuts a{font-size:8px;padding:11px 12px}}
+
+/* Online application form */
+.application-hero{padding:85px 10% 55px;background:linear-gradient(110deg,rgba(14,15,17,.98),rgba(25,26,28,.9));border-bottom:1px solid var(--line)}
+.application-hero h1{font:900 clamp(52px,7vw,78px)/.92 "Barlow Condensed";margin:20px 0}
+.application-hero h1 em,.application-form-heading h2 em{font-style:normal;color:var(--gold)}
+.application-hero p{max-width:620px;color:#a5a6a7;font-size:14px;line-height:1.8}
+.application-wrap{max-width:1050px;margin:0 auto;padding:55px 6% 100px}
+.application-form{padding:clamp(22px,4vw,42px);background:linear-gradient(145deg,#1d2024,#151719);border:1px solid rgba(199,166,106,.22)}
+.application-form-heading{display:flex;align-items:end;justify-content:space-between;gap:15px;padding-bottom:25px;border-bottom:1px solid var(--line);margin-bottom:25px}
+.application-form-heading h2{font:900 clamp(32px,4vw,44px)/.95 "Barlow Condensed";margin:13px 0 0}
+.required-note{font-size:8px;letter-spacing:1.3px;color:#aaa}
+.application-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.application-grid label{display:flex;flex-direction:column;gap:9px;font-size:10px;font-weight:700;letter-spacing:.6px;color:#d7d5d0}
+.application-grid label>span{display:inline;color:var(--gold)}
+.application-grid label.full{grid-column:1/-1}
+.application-grid input,.application-grid select,.application-grid textarea{width:100%;min-height:48px;padding:13px 14px;background:#111315;border:1px solid rgba(255,255,255,.13);border-radius:0;color:#eee;font:500 13px "DM Sans";outline:none}
+.application-grid textarea{resize:vertical;min-height:105px;line-height:1.6}
+.application-grid input:focus,.application-grid select:focus,.application-grid textarea:focus{border-color:var(--gold)}
+.application-grid input::placeholder,.application-grid textarea::placeholder{color:#666}
+.application-consent{margin-top:24px;padding:17px;background:rgba(0,0,0,.16);border:1px solid var(--line)}
+.check-label{display:flex;align-items:flex-start;gap:11px;color:#aaa;font-size:11px;line-height:1.6}
+.check-label input{accent-color:var(--gold);margin-top:2px}
+.application-actions{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:27px;flex-wrap:wrap}
+.application-actions .text-link{margin:0}
+.application-message{display:none;margin-top:20px;padding:14px 16px;font-size:12px;line-height:1.6}
+.application-message.success,.application-message.error{display:block}
+.application-message.success{border:1px solid rgba(141,186,131,.4);color:#b9d4b1;background:rgba(80,130,70,.1)}
+.application-message.error{border:1px solid rgba(198,107,89,.4);color:#e4a89a;background:rgba(160,60,50,.1)}
+.application-actions button:disabled{opacity:.55;cursor:wait}
+@media(max-width:680px){.application-hero{padding:70px 7% 45px}.application-wrap{padding:35px 5% 70px}.application-grid{grid-template-columns:1fr}.application-grid label.full{grid-column:auto}.application-form-heading{align-items:flex-start;flex-direction:column}.application-actions{align-items:stretch;flex-direction:column}.application-actions .btn{width:100%}}
