@@ -38,3 +38,12 @@ GitHub Pages is static hosting and cannot securely connect directly to the QBCor
 - Staff-only management actions
 
 Do not put database credentials, server tokens, or private API keys in frontend files. The website currently provides the frontend foundation; live data and account authentication remain disabled until the backend is deployed and configured.
+
+
+## Discord player portal
+
+A dedicated `portal.html` page and Cloudflare Worker backend scaffold have been added. The portal supports Discord OAuth identity sign-in and server-side sessions after the backend is deployed.
+
+**Backend setup is still required before sign-in works.** Follow [backend/README.md](backend/README.md) to create the Cloudflare D1 database, configure the Discord OAuth application and secrets, and deploy the Worker. Then set `portalApiUrl` in `config.js` to the Worker URL.
+
+The current milestone authenticates Discord accounts only. QBCore character linking, character data, applications, and staff controls are not live yet; these require the separate in-game verification resource and server-side authorization checks.
