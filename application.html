@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101113">
+  <meta name="description" content="Apply to join County Line Roleplay.">
+  <title>Roleplay Application | County Line Roleplay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <script src="config.js"></script><script src="assets/js/app.js" defer></script><script src="assets/js/application.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-red"></div><div class="ambient ambient-blue"></div>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="County Line Roleplay home"><img class="brand-logo" src="assets/images/clrp-logo.webp" alt="County Line Roleplay logo"><span class="brand-copy"><strong>COUNTY LINE</strong><small>ROLEPLAY</small></span></a>
+    <button class="menu-toggle" id="menuToggle" aria-label="Toggle navigation" aria-expanded="false"><span></span><span></span><span></span></button>
+    <nav class="main-nav" id="mainNav"><a href="index.html">Home</a><a href="index.html#about">About</a><a href="index.html#departments">Departments</a><a href="index.html#rules">Rules</a><a class="active" href="careers.html">Careers</a></nav>
+    <a class="header-portal" href="portal.html">PLAYER PORTAL <span>↗</span></a>
+  </header>
+  <main class="application-page">
+    <section class="application-hero"><div class="section-kicker">COUNTY LINE ROLEPLAY / APPLICATION CENTER</div><h1>YOUR STORY <em>STARTS HERE.</em></h1><p>Complete the form below. Our team will review your application and follow up with you.</p></section>
+    <section class="application-wrap">
+      <form id="applicationForm" class="application-form">
+        <div class="application-form-heading"><div><div class="section-kicker">NEW APPLICATION</div><h2>APPLICANT <em>INFORMATION</em></h2></div><span class="required-note">* REQUIRED</span></div>
+        <div class="application-grid">
+          <label>Department <span>*</span><select id="department" name="department" required><option value="">Select a department</option><option value="leo">Law Enforcement</option><option value="ems">Fire & EMS</option><option value="civilian">Civilian</option></select></label>
+          <label>Position <span>*</span><select id="position" name="position" required><option value="">Select a position</option></select></label>
+          <label>Full name / RP name <span>*</span><input name="applicantName" required maxlength="100" placeholder="Enter your name"></label>
+          <label>Email address <span>*</span><input type="email" name="email" required maxlength="160" placeholder="you@example.com"></label>
+          <label>Discord username <span>*</span><input name="discord" required maxlength="80" placeholder="username"></label>
+          <label>Age <span>*</span><input type="number" name="age" required min="13" max="99" placeholder="Your age"></label>
+          <label class="full">What is your timezone and usual availability? <span>*</span><textarea name="availability" required rows="3" maxlength="1500" placeholder="Example: Eastern Time, evenings and weekends..."></textarea></label>
+          <label class="full">Do you have previous roleplay experience? <span>*</span><textarea name="experience" required rows="4" maxlength="2500" placeholder="Tell us about your experience, if any."></textarea></label>
+          <label class="full">Why are you interested in this position? <span>*</span><textarea name="motivation" required rows="4" maxlength="2500" placeholder="Tell us why you'd be a good fit."></textarea></label>
+          <label class="full">Is there anything else our staff should know? <textarea name="additional" rows="3" maxlength="2000" placeholder="Optional additional information..."></textarea></label>
+        </div>
+        <div class="application-consent"><label class="check-label"><input type="checkbox" name="truthful" required><span>I confirm that the information provided is accurate to the best of my knowledge.</span></label></div>
+        <div id="applicationMessage" class="application-message" role="status" aria-live="polite"></div>
+        <div class="application-actions"><a class="text-link" href="careers.html">← BACK TO OPEN POSITIONS</a><button class="btn btn-gold" type="submit" id="submitApplication">SUBMIT APPLICATION ↗</button></div>
+      </form>
+    </section>
+  </main>
+  <footer class="site-footer"><a class="brand footer-brand" href="index.html"><img class="brand-logo footer-logo" src="assets/images/clrp-logo.webp" alt="County Line Roleplay logo"><span class="brand-copy"><strong>COUNTY LINE</strong><small>ROLEPLAY</small></span></a><span>BUILT BY THE COMMUNITY. DRIVEN BY THE STORY.</span><span>© <span id="year"></span> COUNTY LINE ROLEPLAY</span></footer>
+</body></html>
