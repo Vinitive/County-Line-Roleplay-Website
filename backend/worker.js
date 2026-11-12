@@ -42,7 +42,7 @@ export default {
         const authorize = new URL("https://discord.com/oauth2/authorize");
         authorize.search = new URLSearchParams({
           client_id: env.DISCORD_CLIENT_ID, response_type: "code", redirect_uri: redirectUri,
-          scope: "identify", state, prompt: "none"
+          scope: "identify", state
         }).toString();
         return redirect(authorize.toString());
       }
