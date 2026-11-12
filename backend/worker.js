@@ -139,11 +139,9 @@ export default {
           expires
         ).run();
 
-        return portalRedirect(env, null).then
-          ? redirect(new URL(env.FRONTEND_PORTAL_URL).toString(), {
-              "Set-Cookie": sessionCookie(session, 604800)
-            })
-          : portalRedirect(env, null);
+        return redirect(new URL(env.FRONTEND_PORTAL_URL).toString(), {
+          "Set-Cookie": sessionCookie(session, 604800)
+        });
       }
 
       if (url.pathname.startsWith("/api/")) {
