@@ -1,0 +1,12 @@
+name = "county-line-roleplay-portal"
+main = "worker.js"
+compatibility_date = "2026-11-11"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "county-line-roleplay-portal"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[vars]
+FRONTEND_ORIGIN = "https://vinitive.github.io"
+DISCORD_REDIRECT_URI = "https://REPLACE_WITH_WORKER_HOST/auth/callback"
