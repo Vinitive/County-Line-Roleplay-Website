@@ -48,10 +48,10 @@ export default {
       }
       if (url.pathname === "/auth/callback" && request.method === "GET") {
         const state = url.searchParams.get("state"), code = url.searchParams.get("code");
-        if (!state || !code) return redirect(env.FRONTEND_ORIGIN + "/portal.html?auth=failed");
+        if (!state || !code) return redirect(env.FRONTEND_PORTAL_URL?auth=failed");
         const saved = await env.DB.prepare("SELECT state FROM oauth_states WHERE state = ? AND created_at > ?").bind(state, Date.now() - 600000).first();
         await env.DB.prepare("DELETE FROM oauth_states WHERE state = ?").bind(state).run();
-        if (!saved) return redirect(env.FRONTEND_ORIGIN + "/portal.html?auth=invalid_state");
+        if (!saved) return redirect(env.FRONTEND_PORTAL_URL?auth=invalid_state");
         const tokenResponse = await fetch("https://discord.com/api/oauth2/token", {
           method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({
@@ -59,15 +59,15 @@ export default {
             grant_type: "authorization_code", code, redirect_uri: env.DISCORD_REDIRECT_URI
           })
         });
-        if (!tokenResponse.ok) return redirect(env.FRONTEND_ORIGIN + "/portal.html?auth=discord_error");
+        if (!tokenResponse.ok) return redirect(env.FRONTEND_PORTAL_URL?auth=discord_error");
         const token = await tokenResponse.json();
         const userResponse = await fetch("https://discord.com/api/users/@me", { headers: { Authorization: "Bearer " + token.access_token } });
-        if (!userResponse.ok) return redirect(env.FRONTEND_ORIGIN + "/portal.html?auth=profile_error");
+        if (!userResponse.ok) return redirect(env.FRONTEND_PORTAL_URL?auth=profile_error");
         const user = await userResponse.json();
         const session = randomToken(32), sessionHash = await sha256(session), expires = Date.now() + 604800000;
         await env.DB.prepare("INSERT INTO portal_sessions (token_hash, discord_id, username, global_name, avatar, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
           .bind(sessionHash, user.id, user.username, user.global_name || null, user.avatar || null, expires).run();
-        return redirect(env.FRONTEND_ORIGIN + "/portal.html", { "Set-Cookie": cookie("clrp_session", session, 604800) });
+        return redirect(env.FRONTEND_PORTAL_URL", { "Set-Cookie": cookie("clrp_session", session, 604800) });
       }
       if (url.pathname.startsWith("/api/")) {
         if (!origin) return json({ error: "Origin not allowed." }, 403);
