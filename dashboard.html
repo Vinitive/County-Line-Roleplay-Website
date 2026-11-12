@@ -4,18 +4,42 @@
 <title>Player Dashboard | County Line Roleplay</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css"><link rel="stylesheet" href="assets/css/portal.css">
+<link rel="stylesheet" href="assets/css/style.css"><link rel="stylesheet" href="assets/css/portal.css"><link rel="stylesheet" href="assets/css/dashboard.css">
 <script src="config.js"></script><script src="assets/js/dashboard.js" defer></script></head>
-<body class="portal-page"><header class="site-header">
-<a class="brand" href="index.html"><img class="brand-logo" src="assets/images/clrp-logo.webp" alt="County Line Roleplay"><span class="brand-copy"><strong>COUNTY LINE</strong><small>ROLEPLAY</small></span></a>
-<a class="header-portal" href="index.html">BACK TO HOME <span>↗</span></a></header>
-<main class="portal-main"><div class="portal-topline"><span class="section-kicker">COUNTY LINE ROLEPLAY / MEMBER SERVICES</span><span class="portal-secure"><i></i> SECURE PLAYER ACCESS</span></div>
-<section class="portal-dashboard" id="dashboard">
-<div class="dashboard-heading"><div><div class="section-kicker">MEMBER SERVICES / OVERVIEW</div><h1>PLAYER <em>DASHBOARD.</em></h1></div><button class="btn btn-outline" id="signOut" type="button">SIGN OUT ↗</button></div>
-<div class="player-welcome"><img id="discordAvatar" alt="Discord avatar"><div><small>CONNECTED DISCORD ACCOUNT</small><h2 id="discordName">Loading...</h2><span id="discordTag">Discord member</span></div><span class="account-status"><i></i> VERIFIED SESSION</span></div>
-<div class="dashboard-grid">
-<article class="dashboard-card"><div class="card-kicker">01 / PLAYER IDENTITY</div><h3>FIVE M LINK</h3><p id="linkStatus">Your Discord account is signed in. A secure in-game verification link is required before private character information can be displayed.</p><div class="link-code" id="linkCode" hidden></div><button class="btn btn-gold" id="startLink" type="button">LINK MY CHARACTER →</button><small class="card-note" id="linkNote">Character linking will be enabled when the QBCore verification resource is installed.</small></article>
-<article class="dashboard-card"><div class="card-kicker">02 / CHARACTER DATA</div><h3>YOUR COUNTY LIFE</h3><div class="data-placeholder"><span>—</span><p>Character information will appear here after your FiveM account is linked.</p></div></article>
-<article class="dashboard-card"><div class="card-kicker">03 / APPLICATIONS</div><h3>APPLICATION TRACKER</h3><div class="data-placeholder"><span>—</span><p>Department and whitelist application status will appear here when applications are connected.</p></div></article>
-</div><p class="dashboard-footnote" id="dashboardMessage">Checking your secure Discord session...</p>
-</section><footer class="portal-footer"><span>© <span id="year"></span> COUNTY LINE ROLEPLAY</span><span>SECURE MEMBER SERVICES</span></footer></main></body></html>
+<body class="portal-page dashboard-page">
+<header class="site-header"><a class="brand" href="index.html"><img class="brand-logo" src="assets/images/clrp-logo.webp" alt="County Line Roleplay"><span class="brand-copy"><strong>COUNTY LINE</strong><small>ROLEPLAY</small></span></a><div class="dash-header-right"><span class="portal-secure"><i></i> MEMBER ACCESS</span><a class="header-portal" href="index.html">MAIN WEBSITE ↗</a></div></header>
+<main class="dash-shell">
+<aside class="dash-sidebar">
+<div class="dash-profile"><img id="discordAvatar" alt="Discord avatar"><div><strong id="discordName">Loading account...</strong><small id="discordTag">DISCORD MEMBER</small></div></div>
+<div class="dash-nav-label">PLAYER MENU</div>
+<nav class="dash-nav" aria-label="Player dashboard">
+<button class="active" data-view="overview"><span>▦</span> Overview</button>
+<button data-view="character"><span>♙</span> My Character</button>
+<button data-view="applications"><span>▤</span> Applications</button>
+<button data-view="activity"><span>◷</span> My Activity</button>
+<button data-view="settings"><span>⚙</span> Account Settings</button>
+</nav>
+<div class="dash-sidebar-bottom"><div class="county-mini-mark">CL</div><div><b>COUNTY LINE ROLEPLAY</b><small>PLAYER SERVICES · 2026</small></div></div>
+</aside>
+<section class="dash-content">
+<div class="dash-topline"><div><div class="section-kicker">COUNTY LINE ROLEPLAY / MEMBER SERVICES</div><div class="dash-breadcrumb">PLAYER PORTAL <span>/</span> <b id="viewCrumb">OVERVIEW</b></div></div><button class="btn btn-outline dash-signout" id="signOut">SIGN OUT ↗</button></div>
+<div class="dash-view active" id="view-overview">
+<div class="dash-welcome"><div><span class="welcome-label">WELCOME TO YOUR COUNTY</span><h1>YOUR STORY.<br><em>YOUR DASHBOARD.</em></h1><p>Your County Line account, character services, and community activity in one place.</p></div><div class="welcome-seal">CL<small>EST. 2026</small></div></div>
+<div class="dash-section-title"><div><span class="section-kicker">AT A GLANCE</span><h2>ACCOUNT OVERVIEW</h2></div><span class="last-updated">ACCOUNT SESSION <b>ACTIVE</b></span></div>
+<div class="dash-stat-grid">
+<article class="dash-stat"><span class="stat-icon">♙</span><small>CHARACTER STATUS</small><strong id="characterStatus">NOT LINKED</strong><span>Connect your FiveM character</span></article>
+<article class="dash-stat"><span class="stat-icon">▤</span><small>APPLICATIONS</small><strong>—</strong><span>Application tracking coming soon</span></article>
+<article class="dash-stat"><span class="stat-icon">◷</span><small>PLAYTIME</small><strong>—</strong><span>Session tracking not connected</span></article>
+<article class="dash-stat"><span class="stat-icon">⌖</span><small>SERVER STATUS</small><strong class="stat-muted">NOT CONNECTED</strong><span>Live server feed not configured</span></article>
+</div>
+<div class="dash-overview-grid">
+<article class="dash-panel"><div class="panel-heading"><div><span class="section-kicker">YOUR COUNTY LIFE</span><h3>CHARACTER PROFILE</h3></div><button class="panel-link" data-go="character">VIEW PROFILE ↗</button></div><div class="character-empty"><div class="empty-emblem">♙</div><div><b>NO CHARACTER LINKED</b><p>Link your FiveM account to securely view your character, job, finances, vehicles, and more.</p><button class="btn btn-gold" data-go="character">LINK CHARACTER →</button></div></div></article>
+<article class="dash-panel"><div class="panel-heading"><div><span class="section-kicker">ACCOUNT SECURITY</span><h3>CONNECTED ACCOUNT</h3></div><span class="secure-chip">VERIFIED</span></div><div class="connected-account"><img id="overviewAvatar" alt=""><div><b id="overviewName">Discord account</b><small id="overviewTag">@member</small></div></div><p class="panel-muted">Your Discord identity is securely connected to this portal session.</p><button class="panel-link" data-go="settings">ACCOUNT SETTINGS ↗</button></article>
+</div>
+</div>
+<div class="dash-view" id="view-character"><div class="view-heading"><span class="section-kicker">PLAYER SERVICES / IDENTITY</span><h1>MY <em>CHARACTER.</em></h1><p>Your FiveM character information will be displayed here once your Discord account is linked in-game.</p></div><div class="dash-panel large-empty"><div class="empty-emblem">♙</div><h2>YOUR CHARACTER ISN'T LINKED YET</h2><p>Character linking will securely connect your Discord account to your QBCore player record. Once connected, this page can show your character name, job, cash, bank, vehicles, and other approved details.</p><button class="btn btn-gold" id="startLink">LINK MY CHARACTER →</button><small id="linkNote">The QBCore verification resource still needs to be installed and connected.</small></div></div>
+<div class="dash-view" id="view-applications"><div class="view-heading"><span class="section-kicker">PLAYER SERVICES / REQUESTS</span><h1>MY <em>APPLICATIONS.</em></h1><p>Keep track of your whitelist and department applications.</p></div><div class="dash-panel table-panel"><div class="panel-heading"><div><span class="section-kicker">APPLICATION CENTER</span><h3>APPLICATION HISTORY</h3></div><span class="coming-chip">COMING SOON</span></div><div class="empty-table"><span>▤</span><b>NO APPLICATIONS TO DISPLAY</b><p>Application submissions and review statuses will appear here when the application system is connected.</p></div></div></div>
+<div class="dash-view" id="view-activity"><div class="view-heading"><span class="section-kicker">PLAYER SERVICES / HISTORY</span><h1>MY <em>ACTIVITY.</em></h1><p>Your recent time and activity across County Line Roleplay.</p></div><div class="dash-stat-grid activity-stats"><article class="dash-stat"><small>TOTAL PLAYTIME</small><strong>—</strong><span>Not yet tracked</span></article><article class="dash-stat"><small>SESSIONS</small><strong>—</strong><span>Not yet tracked</span></article><article class="dash-stat"><small>FIRST JOINED</small><strong>—</strong><span>Awaiting character link</span></article></div><div class="dash-panel table-panel"><div class="panel-heading"><div><span class="section-kicker">RECENT HISTORY</span><h3>SERVER SESSIONS</h3></div></div><div class="empty-table"><span>◷</span><b>NO ACTIVITY AVAILABLE</b><p>Once server activity tracking is integrated, your recent sessions will appear here.</p></div></div></div>
+<div class="dash-view" id="view-settings"><div class="view-heading"><span class="section-kicker">PLAYER SERVICES / PREFERENCES</span><h1>ACCOUNT <em>SETTINGS.</em></h1><p>Manage the account connected to your County Line player portal.</p></div><div class="dash-panel settings-panel"><div class="panel-heading"><div><span class="section-kicker">DISCORD AUTHENTICATION</span><h3>CONNECTED DISCORD ACCOUNT</h3></div><span class="secure-chip">SECURE SESSION</span></div><div class="connected-account settings-account"><img id="settingsAvatar" alt=""><div><b id="settingsName">Loading...</b><small id="settingsTag">@member</small></div></div><div class="settings-row"><div><b>Sign-in method</b><small>Your Discord account is used to access the player portal.</small></div><strong>DISCORD OAUTH</strong></div><div class="settings-row"><div><b>Character connection</b><small>Connect your QBCore character to unlock player services.</small></div><strong id="settingsCharacter">NOT LINKED</strong></div><div class="settings-row"><div><b>Portal session</b><small>Your current authenticated session.</small></div><strong class="good-text">ACTIVE</strong></div><button class="btn btn-outline" id="settingsSignOut">SIGN OUT OF ALL PORTAL SERVICES ↗</button></div></div>
+<footer class="dash-footer"><span>© <span id="year"></span> COUNTY LINE ROLEPLAY</span><span>BUILT BY THE COMMUNITY. DRIVEN BY THE STORY.</span></footer>
+</section></main></body></html>
