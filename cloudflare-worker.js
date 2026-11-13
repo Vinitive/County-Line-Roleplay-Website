@@ -48,6 +48,40 @@ const allowedOrigin = (request, env) => {
 const redirect = (url, headers = {}) =>
   new Response(null, { status: 302, headers: { Location: url, ...headers } });
 
+
+const CLRP_GUILD_ID = "1465045863687786771";
+
+const CLRP_ROLE_ACCESS = {
+  "1465045865939865803": { name: "Founder", permissions: ["*"] },
+  "1465045865923084561": { name: "Administration", permissions: ["staff.manage", "applications.review", "careers.manage", "website.manage"] },
+  "1465045865864368276": { name: "Human Resources", permissions: ["applications.review"] },
+  "1465045865663172860": { name: "Law Enforcement", permissions: ["mdt.leo"] },
+  "1465045865939865802": { name: "Dispatch", permissions: ["dispatch.access"] },
+  "1465045865562640657": { name: "Fire / EMS", permissions: ["mdt.ems"] },
+  "1465045865864368280": { name: "Civilian Staff", permissions: ["mdt.civilian"] }
+};
+
+const getDiscordAccess = async (env, discordId) => {
+  if (!env.DISCORD_BOT_TOKEN) throw new Error("Discord bot token is not configured.");
+  const response = await fetch(
+    `https://discord.com/api/v10/guilds/${CLRP_GUILD_ID}/members/${encodeURIComponent(discordId)}`,
+    { headers: { Authorization: "Bot " + env.DISCORD_BOT_TOKEN } }
+  );
+  if (response.status === 404) return { roles: [], roleNames: [], permissions: [], isStaff: false };
+  if (!response.ok) {
+    console.error("Discord member lookup failed:", response.status);
+    throw new Error("Unable to verify Discord server roles.");
+  }
+  const member = await response.json();
+  const matched = (member.roles || []).filter(roleId => CLRP_ROLE_ACCESS[roleId]);
+  const roleNames = matched.map(roleId => CLRP_ROLE_ACCESS[roleId].name);
+  const permissions = [...new Set(matched.flatMap(roleId => CLRP_ROLE_ACCESS[roleId].permissions))];
+  return { roles: matched, roleNames, permissions, isStaff: matched.length > 0 };
+};
+
+const hasPermission = (access, permission) =>
+  access.permissions.includes("*") || access.permissions.includes(permission);
+
 const portalRedirect = (env, authResult) => {
   const destination = new URL(env.FRONTEND_PORTAL_URL);
   if (authResult) destination.searchParams.set("auth", authResult);
@@ -398,10 +432,29 @@ export default {
           return json({ characters }, 200, corsHeaders);
         }
 
+        if (url.pathname === "/api/permissions" && request.method === "GET") {
+          if (!session) return json({ error: "Please sign in again." }, 401, corsHeaders);
+          try {
+            const access = await getDiscordAccess(env, session.discord_id);
+            return json(access, 200, corsHeaders);
+          } catch (error) {
+            console.error("Discord role verification error:", error);
+            return json({ error: "Unable to verify your Discord roles right now." }, 503, corsHeaders);
+          }
+        }
+
         if (url.pathname === "/api/me" && request.method === "GET") {
           if (!session) return json({ authenticated: false }, 401, corsHeaders);
+          let access = { roles: [], roleNames: [], permissions: [], isStaff: false };
+          try {
+            access = await getDiscordAccess(env, session.discord_id);
+          } catch (error) {
+            console.error("Discord role verification error:", error);
+            return json({ error: "Unable to verify your Discord roles right now." }, 503, corsHeaders);
+          }
           return json({
             authenticated: true,
+            access,
             user: {
               id: session.discord_id,
               username: session.username,
