@@ -5,25 +5,53 @@
   const position = document.getElementById("position");
   const message = document.getElementById("applicationMessage");
   const submit = document.getElementById("submitApplication");
-  const choices = {
-    leo: ["Patrol Deputy", "State Trooper", "Field Training Officer"],
-    ems: ["Firefighter / EMT", "Paramedic", "Fire / EMS Supervisor"],
-    civilian: ["Business Owner", "Mechanic", "Civilian Roleplayer"]
-  };
+  const positionsByDepartment = { leo: [], ems: [], civilian: [] };
+
   function updatePositions(selected = "") {
-    position.innerHTML = '<option value="">Select a position</option>';
-    (choices[department.value] || []).forEach(name => {
+    position.replaceChildren();
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select a position";
+    position.append(placeholder);
+    (positionsByDepartment[department.value] || []).forEach(item => {
       const option = document.createElement("option");
-      option.value = name; option.textContent = name; position.appendChild(option);
+      option.value = item.title;
+      option.textContent = item.title;
+      position.append(option);
     });
-    if (selected && (choices[department.value] || []).includes(selected)) position.value = selected;
+    if (selected && (positionsByDepartment[department.value] || []).some(item => item.title === selected)) {
+      position.value = selected;
+    }
   }
+
+  async function loadPositions() {
+    const base = window.CLRP_CONFIG?.portalApiUrl;
+    if (!base) throw new Error("Careers service is not configured.");
+    const response = await fetch(base.replace(/\/$/, "") + "/api/careers", { headers: { Accept: "application/json" } });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Unable to load open positions.");
+    Object.keys(positionsByDepartment).forEach(key => { positionsByDepartment[key] = []; });
+    (result.positions || []).forEach(item => {
+      if (positionsByDepartment[item.department]) positionsByDepartment[item.department].push(item);
+    });
+  }
+
   const params = new URLSearchParams(location.search);
-  if (["leo", "ems", "civilian"].includes(params.get("department"))) {
-    department.value = params.get("department");
-    updatePositions(params.get("position") || "");
-  }
   department.addEventListener("change", () => updatePositions());
+  loadPositions().then(() => {
+    if (["leo", "ems", "civilian"].includes(params.get("department"))) department.value = params.get("department");
+    updatePositions(params.get("position") || "");
+    if (!position.options.length || position.options.length === 1) {
+      message.textContent = "There are currently no open positions in this department.";
+    }
+  }).catch(error => {
+    department.disabled = true;
+    position.disabled = true;
+    submit.disabled = true;
+    message.className = "application-message error";
+    message.textContent = error.message;
+  });
+
   form.addEventListener("submit", async event => {
     event.preventDefault();
     message.textContent = "";
