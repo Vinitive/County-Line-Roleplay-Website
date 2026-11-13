@@ -178,8 +178,80 @@
   }
  });
 
+
+ let currentAccess={permissions:[],roleNames:[],isStaff:false};
+ let staffTab="applications";
+ const can=permission=>currentAccess.permissions.includes("*")||currentAccess.permissions.includes(permission);
+ const staffMessage=(id,message)=>{const el=$(id);if(el)el.textContent=message;};
+ const renderStaffApplications=items=>{
+  const host=$("staffApplications");host.replaceChildren();
+  if(!items.length){host.append(node("div","staff-empty","There are no applications in the queue."));return;}
+  items.forEach(app=>{
+   const card=node("article","staff-application");
+   const top=node("div","staff-application-top");
+   const heading=node("div","");
+   heading.append(node("h4","",app.applicant_name+" · "+app.position),node("small","",String(app.department||"").toUpperCase()+" · "+new Date(app.submitted_at).toLocaleString()));
+   const status=node("span","staff-status status-"+app.status,app.status.toUpperCase());
+   top.append(heading,status);card.append(top);
+   const details=node("div","staff-application-details");
+   [["EMAIL",app.email],["DISCORD",app.discord],["AGE",app.age],["AVAILABILITY",app.availability],["EXPERIENCE",app.experience],["WHY THEY WANT TO JOIN",app.motivation],["ADDITIONAL NOTES",app.additional||"None"]].forEach(([label,value])=>{
+    const block=node("div","staff-answer");block.append(node("small","",label),node("p","",value));details.append(block);
+   });
+   card.append(details);
+   const controls=node("div","staff-review-controls");
+   const select=node("select","staff-status-select");
+   [["pending","Pending"],["reviewing","Reviewing"],["accepted","Accepted"],["rejected","Rejected"]].forEach(([value,label])=>{const option=node("option","",label);option.value=value;option.selected=value===app.status;select.append(option);});
+   const save=node("button","btn btn-gold","SAVE STATUS");
+   save.type="button";
+   save.addEventListener("click",async()=>{
+    save.disabled=true;save.textContent="SAVING...";
+    try{await request("/api/staff/applications",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:app.id,status:select.value})});staffMessage("applicationsMessage","Application status updated.");await loadStaffApplications();}
+    catch(error){staffMessage("applicationsMessage",error.message);}
+    finally{save.disabled=false;save.textContent="SAVE STATUS";}
+   });
+   controls.append(select,save);card.append(controls);host.append(card);
+  });
+ };
+ const loadStaffApplications=async()=>{
+  staffMessage("applicationsMessage","Loading applications...");
+  try{const result=await request("/api/staff/applications");renderStaffApplications(result.applications||[]);staffMessage("applicationsMessage",(result.applications||[]).length+" application(s) loaded.");}
+  catch(error){$("staffApplications").replaceChildren();staffMessage("applicationsMessage",error.message);}
+ };
+ const loadStaffRoles=async()=>{
+  staffMessage("rolesMessage","Loading role mappings...");
+  try{
+   const result=await request("/api/staff/roles");const host=$("staffRoles");host.replaceChildren();
+   (result.roles||[]).forEach(role=>{
+    const card=node("article","staff-role-card");
+    card.append(node("h4","",role.name),node("code","",role.discordRoleId));
+    const permissions=node("div","staff-permission-list");
+    role.permissions.forEach(p=>permissions.append(node("span","staff-permission",p==="*"?"FULL ACCESS":p)));
+    card.append(permissions);host.append(card);
+   });
+   staffMessage("rolesMessage",(result.roles||[]).length+" Discord role mappings loaded.");
+  }catch(error){$("staffRoles").replaceChildren();staffMessage("rolesMessage",error.message);}
+ };
+ const setStaffTab=tab=>{
+  staffTab=tab;
+  document.querySelectorAll("[data-staff-tab]").forEach(b=>b.classList.toggle("active",b.dataset.staffTab===tab));
+  $("staffApplicationsPanel").hidden=tab!=="applications";
+  $("staffRolesPanel").hidden=tab!=="roles";
+  if(tab==="applications")loadStaffApplications();
+  if(tab==="roles")loadStaffRoles();
+ };
+ document.querySelectorAll("[data-staff-tab]").forEach(b=>b.addEventListener("click",()=>setStaffTab(b.dataset.staffTab)));
+ $("refreshStaffApplications").addEventListener("click",loadStaffApplications);
+ $("refreshStaffRoles").addEventListener("click",loadStaffRoles);
+
  request("/api/me").then(async data=>{
   if(!data.authenticated||!data.user){login();return;}
+  currentAccess=data.access||{permissions:[],roleNames:[],isStaff:false};
+  if(currentAccess.isStaff){
+   $("staffNav").hidden=false;
+   $("staffRoleSummary").textContent=(currentAccess.roleNames||[]).join(" · ")||"Staff access";
+   $("staffRolesTab").hidden=!can("staff.manage");
+   if(!can("applications.review")){document.querySelector('[data-staff-tab="applications"]').hidden=true;$("staffApplicationsPanel").hidden=true;setStaffTab("roles");}
+  } else {$("staffNav").hidden=true;}
   const u=data.user,name=u.global_name||u.username||"Discord member",tag="@"+(u.username||"member");
   const avatar=u.avatar?"https://cdn.discordapp.com/avatars/"+encodeURIComponent(u.id)+"/"+encodeURIComponent(u.avatar)+".png?size=128":"https://cdn.discordapp.com/embed/avatars/0.png";
   $("discordName").textContent=name;
