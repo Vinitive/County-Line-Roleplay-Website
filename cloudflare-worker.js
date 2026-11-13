@@ -389,6 +389,65 @@ export default {
             ).bind(await sha256(rawSession), Date.now()).first()
           : null;
 
+        if (url.pathname === "/api/staff/applications" && (request.method === "GET" || request.method === "POST")) {
+          if (!session) return json({ error: "Please sign in again." }, 401, corsHeaders);
+
+          let access;
+          try {
+            access = await getDiscordAccess(env, session.discord_id);
+          } catch (error) {
+            console.error("Staff role verification error:", error);
+            return json({ error: "Unable to verify your Discord roles right now." }, 503, corsHeaders);
+          }
+
+          if (!hasPermission(access, "applications.review")) {
+            return json({ error: "You do not have permission to review applications." }, 403, corsHeaders);
+          }
+
+          if (request.method === "GET") {
+            const result = await env.DB.prepare(
+              "SELECT id, department, position, applicant_name, email, discord, age, availability, experience, motivation, additional, status, submitted_at FROM applications ORDER BY submitted_at DESC LIMIT 200"
+            ).all();
+            return json({ applications: result.results || [] }, 200, corsHeaders);
+          }
+
+          const body = await request.json();
+          const id = String(body.id || "").trim();
+          const status = String(body.status || "").trim().toLowerCase();
+          if (!id || !["pending", "reviewing", "accepted", "rejected"].includes(status)) {
+            return json({ error: "A valid application ID and status are required." }, 400, corsHeaders);
+          }
+
+          const result = await env.DB.prepare(
+            "UPDATE applications SET status = ? WHERE id = ?"
+          ).bind(status, id).run();
+          if (!Number(result.meta && result.meta.changes || 0)) {
+            return json({ error: "Application not found." }, 404, corsHeaders);
+          }
+          return json({ ok: true, id, status }, 200, corsHeaders);
+        }
+
+        if (url.pathname === "/api/staff/roles" && request.method === "GET") {
+          if (!session) return json({ error: "Please sign in again." }, 401, corsHeaders);
+          let access;
+          try {
+            access = await getDiscordAccess(env, session.discord_id);
+          } catch (error) {
+            console.error("Staff role verification error:", error);
+            return json({ error: "Unable to verify your Discord roles right now." }, 503, corsHeaders);
+          }
+          if (!hasPermission(access, "staff.manage")) {
+            return json({ error: "You do not have permission to view staff role mappings." }, 403, corsHeaders);
+          }
+          return json({
+            roles: Object.entries(CLRP_ROLE_ACCESS).map(([discordRoleId, role]) => ({
+              discordRoleId,
+              name: role.name,
+              permissions: role.permissions
+            }))
+          }, 200, corsHeaders);
+        }
+
         if (url.pathname === "/api/link-code" && request.method === "POST") {
           if (!session) return json({ error: "Please sign in again." }, 401, corsHeaders);
 
