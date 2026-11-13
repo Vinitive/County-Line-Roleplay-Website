@@ -236,7 +236,14 @@ local function syncOnlineCharacters()
         end
     end
 
-    requestApi('/api/server/sync', { characters = characters }, function(ok, result)
+    requestApi('/api/server/sync', {
+        characters = characters,
+        server = {
+            name = GetConvar('sv_hostname', 'County Line Roleplay'),
+            players = GetNumPlayerIndices(),
+            maxPlayers = tonumber(GetConvar('sv_maxclients', '32')) or 32
+        }
+    }, function(ok, result)
         if not ok then
             log('Sync failed: ' .. tostring(result))
         elseif result and result.updated and result.updated > 0 then
