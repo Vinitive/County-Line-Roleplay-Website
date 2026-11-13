@@ -246,7 +246,7 @@
  request("/api/me").then(async data=>{
   if(!data.authenticated||!data.user){login();return;}
   currentAccess=data.access||{permissions:[],roleNames:[],isStaff:false};
-  if(currentAccess.isStaff){
+  if(can("applications.review")||can("staff.manage")){
    $("staffNav").hidden=false;
    $("staffRoleSummary").textContent=(currentAccess.roleNames||[]).join(" · ")||"Staff access";
    $("staffRolesTab").hidden=!can("staff.manage");
