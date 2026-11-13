@@ -193,8 +193,8 @@ export default {
             ).bind(characterName, now, citizenid, link.discord_id).run();
           } else {
             await env.DB.prepare(
-              "INSERT INTO portal_characters (citizenid, discord_id, character_name, payload, is_online, last_seen, updated_at) VALUES (?, ?, ?, '{}', 1, ?, ?)"
-            ).bind(citizenid, link.discord_id, characterName, now, now).run();
+              "INSERT INTO portal_characters (citizenid, discord_id, character_name, payload, is_online, last_seen, updated_at, sessions_count, first_joined) VALUES (?, ?, ?, '{}', 1, ?, ?, 1, ?)"
+            ).bind(citizenid, link.discord_id, characterName, now, now, now).run();
           }
 
           return json({ ok: true, characterName });
