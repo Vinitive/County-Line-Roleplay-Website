@@ -109,6 +109,8 @@
    addMetric(metrics,"BANK",money(moneyData.bank));
    addMetric(metrics,"JOB",(job.label||job.name||"Unemployed")+(job.gradeName?" · "+job.gradeName:""));
    addMetric(metrics,"GANG",gang.label||gang.name||"None");
+   addMetric(metrics,"PLAYTIME",formatPlaytime(character.playtimeSeconds));
+   addMetric(metrics,"SESSIONS",String(Number(character.sessionsCount)||0));
    card.append(metrics);
 
    const profileText=[
