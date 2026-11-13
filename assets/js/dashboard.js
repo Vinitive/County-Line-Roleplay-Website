@@ -315,12 +315,12 @@
  request("/api/me").then(async data=>{
   if(!data.authenticated||!data.user){login();return;}
   currentAccess=data.access||{permissions:[],roleNames:[],isStaff:false};
-  if(can("applications.review")||can("staff.manage")){
+  if(can("applications.review")||can("staff.manage")||can("careers.manage")){
    $("staffNav").hidden=false;
    $("staffRoleSummary").textContent=(currentAccess.roleNames||[]).join(" · ")||"Staff access";
    $("staffRolesTab").hidden=!can("staff.manage");
    $("staffCareersTab").hidden=!can("careers.manage");
-   if(!can("applications.review")){document.querySelector('[data-staff-tab="applications"]').hidden=true;$("staffApplicationsPanel").hidden=true;setStaffTab("roles");}
+   if(!can("applications.review")){document.querySelector('[data-staff-tab="applications"]').hidden=true;$("staffApplicationsPanel").hidden=true;setStaffTab(can("staff.manage")?"roles":"careers");}
   } else {$("staffNav").hidden=true;}
   const u=data.user,name=u.global_name||u.username||"Discord member",tag="@"+(u.username||"member");
   const avatar=u.avatar?"https://cdn.discordapp.com/avatars/"+encodeURIComponent(u.id)+"/"+encodeURIComponent(u.avatar)+".png?size=128":"https://cdn.discordapp.com/embed/avatars/0.png";
