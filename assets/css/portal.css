@@ -72,3 +72,23 @@
 .staff-permission{padding:6px 8px;background:#202226;border:1px solid #303236;color:var(--gold2);font-size:8px}
 .staff-empty{padding:35px;text-align:center;color:#929497;font-size:11px;border:1px dashed var(--line)}
 @media(max-width:700px){.staff-toolbar{align-items:flex-start;flex-direction:column}.staff-application-details,.staff-roles{grid-template-columns:1fr}.staff-review-controls{align-items:stretch;flex-direction:column}.staff-status-select,.staff-review-controls .btn{width:100%}}
+
+
+/* Staff Careers Management */
+.career-admin-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;padding:20px;margin:18px 0 22px;background:#141619;border:1px solid var(--line)}
+.career-admin-form label{display:flex;flex-direction:column;gap:7px;font-size:9px;letter-spacing:1px;color:#aeb0b2}
+.career-admin-form input:not([type=checkbox]),.career-admin-form select,.career-admin-form textarea{width:100%;padding:12px;background:#101214;color:#eee;border:1px solid #393b3e;font:500 11px "DM Sans";outline:none}
+.career-admin-form input:focus,.career-admin-form select:focus,.career-admin-form textarea:focus{border-color:rgba(199,166,106,.65)}
+.career-admin-description{grid-column:1/-1}
+.career-open-toggle{flex-direction:row!important;align-items:center;letter-spacing:.3px!important}
+.career-open-toggle input{accent-color:#c7a66a}
+.career-admin-actions{display:flex;align-items:center;gap:9px}
+.career-admin-actions .btn{padding:12px 15px;font-size:8px}
+.staff-career-positions{display:grid;gap:10px}
+.staff-career-card{display:flex;justify-content:space-between;align-items:center;gap:18px;padding:17px;background:#141619;border:1px solid var(--line)}
+.staff-career-info{min-width:0}
+.staff-career-info h4{font:700 20px "Barlow Condensed";margin:6px 0}
+.staff-career-info p{font-size:10px;color:#a2a4a6;line-height:1.7;margin:0}
+.staff-career-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:7px;flex:0 0 auto}
+.staff-career-actions .btn{padding:10px 12px;font-size:8px}
+@media(max-width:700px){.career-admin-form{grid-template-columns:1fr;padding:15px}.career-admin-description{grid-column:auto}.staff-career-card{align-items:flex-start;flex-direction:column}.staff-career-actions{justify-content:flex-start}.career-admin-actions{flex-wrap:wrap}}
