@@ -64,12 +64,16 @@
    $("characterRefreshStatus").textContent="NO CHARACTERS LINKED";
    $("characterStatus").textContent="NOT LINKED";
    $("settingsCharacter").textContent="NOT LINKED";
+   if($("overviewCharacterTitle"))$("overviewCharacterTitle").textContent="NO CHARACTER LINKED";
+   if($("overviewCharacterSummary"))$("overviewCharacterSummary").textContent="Link a FiveM character to see its profile, finances, job, vehicles, and properties here.";
    return;
   }
 
   $("characterRefreshStatus").textContent="AUTO-REFRESH · 30 SECONDS";
   $("characterStatus").textContent=characters.length+" LINKED";
   $("settingsCharacter").textContent=characters.length+" LINKED";
+  if($("overviewCharacterTitle"))$("overviewCharacterTitle").textContent=characters.length+" CHARACTER"+(characters.length===1?"":"S")+" LINKED";
+  if($("overviewCharacterSummary"))$("overviewCharacterSummary").textContent="Your "+characters.length+" linked character"+(characters.length===1?" is":"s are")+" available in My Character. Select a character to view its latest server information.";
 
   characters.forEach(character=>{
    const data=character.data||{};
