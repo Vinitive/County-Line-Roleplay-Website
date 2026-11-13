@@ -143,7 +143,7 @@
   }
  };
 
- const refreshAnchor=
+ const refreshCharacters=async()=>{
   try{
    const result=await request("/api/characters");
    renderCharacters(result.characters||[]);
