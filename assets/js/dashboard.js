@@ -231,13 +231,82 @@
    staffMessage("rolesMessage",(result.roles||[]).length+" Discord role mappings loaded.");
   }catch(error){$("staffRoles").replaceChildren();staffMessage("rolesMessage",error.message);}
  };
+ let careerPositions=[];
+ const resetCareerForm=()=>{
+  $("careerPositionForm").reset();
+  $("careerPositionId").value="";
+  $("careerIsOpen").checked=true;
+  $("saveCareerPosition").textContent="CREATE POSITION →";
+  $("cancelCareerEdit").hidden=true;
+ };
+ const renderCareerPositions=()=>{
+  const host=$("staffCareerPositions");host.replaceChildren();
+  if(!careerPositions.length){host.append(node("div","staff-empty","No career positions have been created yet."));return;}
+  careerPositions.forEach(position=>{
+   const card=node("article","staff-career-card");
+   const info=node("div","staff-career-info");
+   info.append(node("span","position-type",String(position.department).toUpperCase()+" · "+(position.is_open?"OPEN":"CLOSED")));
+   info.append(node("h4","",position.title),node("p","",position.description));
+   const actions=node("div","staff-career-actions");
+   const edit=node("button","btn btn-outline","EDIT");edit.type="button";
+   edit.addEventListener("click",()=>{
+    $("careerPositionId").value=position.id;
+    $("careerDepartment").value=position.department;
+    $("careerTitle").value=position.title;
+    $("careerType").value=position.position_type||"";
+    $("careerDescription").value=position.description;
+    $("careerIsOpen").checked=Boolean(position.is_open);
+    $("saveCareerPosition").textContent="SAVE CHANGES →";
+    $("cancelCareerEdit").hidden=false;
+    $("careerPositionForm").scrollIntoView({behavior:"smooth",block:"center"});
+   });
+   const toggle=node("button","btn btn-outline",position.is_open?"CLOSE POSITION":"REOPEN POSITION");toggle.type="button";
+   toggle.addEventListener("click",async()=>{
+    toggle.disabled=true;
+    try{await request("/api/staff/careers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...position,isOpen:!Boolean(position.is_open),positionType:position.position_type})});await loadStaffCareers();}
+    catch(error){staffMessage("careersMessage",error.message);toggle.disabled=false;}
+   });
+   const remove=node("button","btn btn-outline","DELETE");remove.type="button";
+   remove.addEventListener("click",async()=>{
+    if(!window.confirm("Permanently delete "+position.title+"?"))return;
+    remove.disabled=true;
+    try{await request("/api/staff/careers",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:position.id})});staffMessage("careersMessage","Position deleted.");await loadStaffCareers();}
+    catch(error){staffMessage("careersMessage",error.message);remove.disabled=false;}
+   });
+   actions.append(edit,toggle,remove);card.append(info,actions);host.append(card);
+  });
+ };
+ const loadStaffCareers=async()=>{
+  staffMessage("careersMessage","Loading career positions...");
+  try{const result=await request("/api/staff/careers");careerPositions=result.positions||[];renderCareerPositions();staffMessage("careersMessage",careerPositions.length+" position(s) loaded.");}
+  catch(error){$("staffCareerPositions").replaceChildren();staffMessage("careersMessage",error.message);}
+ };
+ $("careerPositionForm").addEventListener("submit",async event=>{
+  event.preventDefault();
+  const button=$("saveCareerPosition");button.disabled=true;button.textContent="SAVING...";
+  const id=$("careerPositionId").value;
+  try{
+   await request("/api/staff/careers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+    id:id||undefined,department:$("careerDepartment").value,title:$("careerTitle").value.trim(),
+    positionType:$("careerType").value.trim()||"OPEN POSITION",description:$("careerDescription").value.trim(),
+    isOpen:$("careerIsOpen").checked
+   })});
+   resetCareerForm();staffMessage("careersMessage",id?"Position updated.":"Position created.");await loadStaffCareers();
+  }catch(error){staffMessage("careersMessage",error.message);}
+  finally{button.disabled=false;button.textContent=$("careerPositionId").value?"SAVE CHANGES →":"CREATE POSITION →";}
+ });
+ $("cancelCareerEdit").addEventListener("click",resetCareerForm);
+ $("refreshStaffCareers").addEventListener("click",loadStaffCareers);
+
  const setStaffTab=tab=>{
   staffTab=tab;
   document.querySelectorAll("[data-staff-tab]").forEach(b=>b.classList.toggle("active",b.dataset.staffTab===tab));
   $("staffApplicationsPanel").hidden=tab!=="applications";
   $("staffRolesPanel").hidden=tab!=="roles";
+  $("staffCareersPanel").hidden=tab!=="careers";
   if(tab==="applications")loadStaffApplications();
   if(tab==="roles")loadStaffRoles();
+  if(tab==="careers")loadStaffCareers();
  };
  document.querySelectorAll("[data-staff-tab]").forEach(b=>b.addEventListener("click",()=>setStaffTab(b.dataset.staffTab)));
  $("refreshStaffApplications").addEventListener("click",loadStaffApplications);
@@ -250,6 +319,7 @@
    $("staffNav").hidden=false;
    $("staffRoleSummary").textContent=(currentAccess.roleNames||[]).join(" · ")||"Staff access";
    $("staffRolesTab").hidden=!can("staff.manage");
+   $("staffCareersTab").hidden=!can("careers.manage");
    if(!can("applications.review")){document.querySelector('[data-staff-tab="applications"]').hidden=true;$("staffApplicationsPanel").hidden=true;setStaffTab("roles");}
   } else {$("staffNav").hidden=true;}
   const u=data.user,name=u.global_name||u.username||"Discord member",tag="@"+(u.username||"member");
