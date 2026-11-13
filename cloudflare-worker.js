@@ -337,11 +337,6 @@ export default {
         if (url.pathname === "/api/applications" && request.method === "POST") {
           try {
             const body = await request.json();
-            const positions = {
-              leo: ["Patrol Deputy", "State Trooper", "Field Training Officer"],
-              ems: ["Firefighter / EMT", "Paramedic", "Fire / EMS Supervisor"],
-              civilian: ["Business Owner", "Mechanic", "Civilian Roleplayer"]
-            };
             const required = ["applicantName", "email", "discord", "availability", "experience", "motivation"];
 
             for (const key of required) {
@@ -350,14 +345,17 @@ export default {
               }
             }
 
+            const openPosition = await env.DB.prepare(
+              "SELECT id FROM career_positions WHERE department = ? AND title = ? AND is_open = 1 LIMIT 1"
+            ).bind(String(body.department || ""), String(body.position || "")).first();
+
             if (
-              !positions[body.department] ||
-              !positions[body.department].includes(body.position) ||
+              !openPosition ||
               !Number.isInteger(Number(body.age)) ||
               Number(body.age) < 13 ||
               Number(body.age) > 99
             ) {
-              return json({ error: "Please check your department, position, and age." }, 400, corsHeaders);
+              return json({ error: "Please select a currently open position and check your age." }, 400, corsHeaders);
             }
 
             const limits = {
