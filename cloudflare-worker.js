@@ -358,7 +358,7 @@ export default {
           if (!session) return json({ error: "Please sign in again." }, 401, corsHeaders);
 
           const result = await env.DB.prepare(
-            "SELECT citizenid, character_name, payload, is_online, last_seen, updated_at FROM portal_characters WHERE discord_id = ? ORDER BY character_name COLLATE NOCASE"
+            "SELECT citizenid, character_name, payload, is_online, last_seen, updated_at, playtime_seconds, sessions_count, first_joined FROM portal_characters WHERE discord_id = ? ORDER BY character_name COLLATE NOCASE"
           ).bind(session.discord_id).all();
 
           const characters = (result.results || []).map(row => {
