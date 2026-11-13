@@ -37,6 +37,10 @@
   return element;
  };
  const money=value=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(Number(value)||0);
+ const formatPlaytime=value=>{
+  const hours=Math.floor((Number(value)||0)/3600),minutes=Math.floor(((Number(value)||0)%3600)/60);
+  return hours+"h "+minutes+"m";
+ };
  const addMetric=(parent,label,value)=>{
   const item=node("div","character-metric");
   item.append(node("small","",label),node("strong","",value));
@@ -53,6 +57,15 @@
  };
  const renderCharacters=characters=>{
   const list=$("characterList");
+  const totals=(characters||[]).reduce((sum,c)=>({
+   seconds:sum.seconds+(Number(c.playtimeSeconds)||0),
+   sessions:sum.sessions+(Number(c.sessionsCount)||0)
+  }),{seconds:0,sessions:0});
+  if($("overviewPlaytime"))$("overviewPlaytime").textContent=formatPlaytime(totals.seconds);
+  if($("activityPlaytime"))$("activityPlaytime").textContent=formatPlaytime(totals.seconds);
+  if($("activitySessions"))$("activitySessions").textContent=String(totals.sessions);
+  const joined=(characters||[]).map(c=>Number(c.firstJoined)||0).filter(Boolean).sort((a,b)=>a-b)[0];
+  if($("activityFirstJoined"))$("activityFirstJoined").textContent=joined?new Date(joined).toLocaleDateString():"—";
   if(!list)return;
   list.replaceChildren();
 
@@ -117,7 +130,20 @@
   });
  };
 
- const refreshCharacters=async()=>{
+ const refreshServerStatus=async()=>{
+  try{
+   const status=await request("/api/server-status");
+   const value=$("serverStatusValue"),detail=$("serverStatusDetail");
+   if(value){value.textContent=status.online?"ONLINE":"OFFLINE";value.classList.toggle("stat-muted",!status.online);}
+   if(detail)detail.textContent=status.online?(status.players+" / "+status.maxPlayers+" PLAYERS"):"No recent server heartbeat";
+  }catch(error){
+   if($("serverStatusValue")){$("serverStatusValue").textContent="UNAVAILABLE";$("serverStatusValue").classList.add("stat-muted");}
+   if($("serverStatusDetail"))$("serverStatusDetail").textContent="Live status feed unavailable";
+   console.warn("Server status refresh:",error.message);
+  }
+ };
+
+ const refreshAnchor=
   try{
    const result=await request("/api/characters");
    renderCharacters(result.characters||[]);
@@ -160,7 +186,9 @@
   ["overviewName","settingsName"].forEach(id=>$(id).textContent=name);
   ["overviewTag","settingsTag"].forEach(id=>$(id).textContent=tag);
   await refreshCharacters();
+  await refreshServerStatus();
   window.setInterval(refreshCharacters,30000);
+  window.setInterval(refreshServerStatus,30000);
  }).catch(error=>{
   $("viewCrumb").textContent="SESSION ERROR";
   const p=document.createElement("p");
