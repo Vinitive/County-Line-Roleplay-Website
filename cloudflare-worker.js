@@ -37,7 +37,12 @@ const getCookie = (request, name) =>
 
 const allowedOrigin = (request, env) => {
   const origin = request.headers.get("Origin") || "";
-  return origin === env.FRONTEND_ORIGIN ? origin : "";
+  const configured = String(env.FRONTEND_ORIGIN || "").replace(/\/$/, "");
+  const trustedOrigins = new Set([
+    configured,
+    "https://vinitive.github.io"
+  ].filter(Boolean));
+  return trustedOrigins.has(origin) ? origin : "";
 };
 
 const redirect = (url, headers = {}) =>
