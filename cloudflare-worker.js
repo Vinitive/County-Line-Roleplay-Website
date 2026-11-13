@@ -266,15 +266,25 @@ export default {
         ).first();
         const now = Date.now();
         const online = Boolean(status && status.last_heartbeat && now - status.last_heartbeat < 90000);
-        return json({
+        return new Response(JSON.stringify({
           online,
           name: status?.server_name || "County Line Roleplay",
           players: online ? Number(status.player_count) || 0 : 0,
           maxPlayers: Number(status?.max_players) || 32,
           lastHeartbeat: status?.last_heartbeat || null
-        }, 200, {
-          ...cors("https://vinitive.github.io"),
-          "Access-Control-Allow-Origin": "https://vinitive.github.io"
+        }), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "no-store",
+            "Access-Control-Allow-Origin": "https://vinitive.github.io",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Headers": "Content-Type",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Expose-Headers": "X-CLRP-Worker-Version",
+            "X-CLRP-Worker-Version": "cors-direct-2026-11-12",
+            "Vary": "Origin"
+          }
         });
       }
 
