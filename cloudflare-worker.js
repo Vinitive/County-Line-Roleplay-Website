@@ -203,29 +203,71 @@ export default {
         if (url.pathname === "/api/server/sync") {
           const characters = Array.isArray(body.characters) ? body.characters.slice(0, 128) : [];
           const now = Date.now();
-          await env.DB.prepare("UPDATE portal_characters SET is_online = 0").run();
+
+          // Expire characters that have not appeared in a recent server heartbeat.
+          await env.DB.prepare(
+            "UPDATE portal_characters SET is_online = 0 WHERE last_seen IS NULL OR last_seen < ?"
+          ).bind(now - 90000).run();
 
           let updated = 0;
           for (const character of characters) {
             const citizenid = String(character.citizenid || "").trim();
             if (!/^[A-Za-z0-9_-]{2,64}$/.test(citizenid)) continue;
 
+            const previous = await env.DB.prepare(
+              "SELECT is_online, last_seen FROM portal_characters WHERE citizenid = ?"
+            ).bind(citizenid).first();
+            if (!previous) continue;
+
+            const elapsed = previous.is_online && previous.last_seen
+              ? Math.min(90, Math.max(0, (now - Number(previous.last_seen)) / 1000))
+              : 0;
+            const newSession = previous.is_online ? 0 : 1;
+
             const result = await env.DB.prepare(
-              "UPDATE portal_characters SET character_name = ?, payload = ?, is_online = 1, last_seen = ?, updated_at = ? WHERE citizenid = ?"
+              "UPDATE portal_characters SET character_name = ?, payload = ?, is_online = 1, last_seen = ?, updated_at = ?, playtime_seconds = playtime_seconds + ?, sessions_count = sessions_count + ?, first_joined = COALESCE(first_joined, ?) WHERE citizenid = ?"
             ).bind(
               String(character.characterName || "Unknown Character").slice(0, 100),
               JSON.stringify(character),
               now,
               now,
+              Math.floor(elapsed),
+              newSession,
+              now,
               citizenid
             ).run();
-
             updated += Number(result.meta && result.meta.changes || 0);
           }
+
+          const server = body.server || {};
+          await env.DB.prepare(
+            "INSERT INTO portal_server_status (id, server_name, player_count, max_players, last_heartbeat) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET server_name = excluded.server_name, player_count = excluded.player_count, max_players = excluded.max_players, last_heartbeat = excluded.last_heartbeat"
+          ).bind(
+            String(server.name || "County Line Roleplay").slice(0, 100),
+            Math.max(0, Number(server.players) || 0),
+            Math.max(1, Number(server.maxPlayers) || 32),
+            now
+          ).run();
+
           return json({ ok: true, updated });
         }
 
         return json({ error: "Not found." }, 404);
+      }
+
+      if (url.pathname === "/api/server-status" && request.method === "GET") {
+        const status = await env.DB.prepare(
+          "SELECT server_name, player_count, max_players, last_heartbeat FROM portal_server_status WHERE id = 1"
+        ).first();
+        const now = Date.now();
+        const online = Boolean(status && status.last_heartbeat && now - status.last_heartbeat < 90000);
+        return json({
+          online,
+          name: status?.server_name || "County Line Roleplay",
+          players: online ? Number(status.player_count) || 0 : 0,
+          maxPlayers: Number(status?.max_players) || 32,
+          lastHeartbeat: status?.last_heartbeat || null
+        });
       }
 
       if (url.pathname.startsWith("/api/")) {
@@ -325,9 +367,12 @@ export default {
             return {
               citizenid: row.citizenid,
               characterName: row.character_name,
-              isOnline: Boolean(row.is_online),
+              isOnline: Boolean(row.is_online) && Boolean(row.last_seen) && Date.now() - Number(row.last_seen) < 90000,
               lastSeen: row.last_seen,
               updatedAt: row.updated_at,
+              playtimeSeconds: Number(row.playtime_seconds) || 0,
+              sessionsCount: Number(row.sessions_count) || 0,
+              firstJoined: row.first_joined || null,
               data: payload
             };
           });
