@@ -325,6 +325,14 @@ export default {
       if (url.pathname.startsWith("/api/")) {
         if (!origin) return json({ error: "Origin not allowed." }, 403);
 
+        // Public careers feed: only positions marked open are visible to applicants.
+        if (url.pathname === "/api/careers" && request.method === "GET") {
+          const result = await env.DB.prepare(
+            "SELECT id, department, title, description, position_type FROM career_positions WHERE is_open = 1 ORDER BY department, created_at"
+          ).all();
+          return json({ positions: result.results || [] }, 200, corsHeaders);
+        }
+
         // Public application submissions. Staff review endpoints are not enabled.
         if (url.pathname === "/api/applications" && request.method === "POST") {
           try {
@@ -388,6 +396,62 @@ export default {
               "SELECT discord_id, username, global_name, avatar FROM portal_sessions WHERE token_hash = ? AND expires_at > ?"
             ).bind(await sha256(rawSession), Date.now()).first()
           : null;
+
+        if (url.pathname === "/api/staff/careers" && ["GET", "POST", "DELETE"].includes(request.method)) {
+          if (!session) return json({ error: "Please sign in again." }, 401, corsHeaders);
+          let access;
+          try {
+            access = await getDiscordAccess(env, session.discord_id);
+          } catch (error) {
+            console.error("Careers permission verification error:", error);
+            return json({ error: "Unable to verify your Discord roles right now." }, 503, corsHeaders);
+          }
+          if (!hasPermission(access, "careers.manage")) {
+            return json({ error: "You do not have permission to manage careers." }, 403, corsHeaders);
+          }
+
+          if (request.method === "GET") {
+            const result = await env.DB.prepare(
+              "SELECT id, department, title, description, position_type, is_open, created_at, updated_at FROM career_positions ORDER BY department, created_at DESC"
+            ).all();
+            return json({ positions: result.results || [] }, 200, corsHeaders);
+          }
+
+          const body = await request.json();
+          if (request.method === "DELETE") {
+            const id = String(body.id || "").trim();
+            if (!id) return json({ error: "A position ID is required." }, 400, corsHeaders);
+            const result = await env.DB.prepare("DELETE FROM career_positions WHERE id = ?").bind(id).run();
+            if (!Number(result.meta && result.meta.changes || 0)) return json({ error: "Position not found." }, 404, corsHeaders);
+            return json({ ok: true, id }, 200, corsHeaders);
+          }
+
+          const department = String(body.department || "").trim().toLowerCase();
+          const title = String(body.title || "").trim();
+          const description = String(body.description || "").trim();
+          const positionType = String(body.positionType || "OPEN POSITION").trim().slice(0, 40);
+          const isOpen = body.isOpen === false || body.isOpen === 0 ? 0 : 1;
+          if (!["leo", "ems", "civilian"].includes(department) || !title || !description) {
+            return json({ error: "Department, position title, and description are required." }, 400, corsHeaders);
+          }
+          if (title.length > 100 || description.length > 1200) {
+            return json({ error: "Position title or description is too long." }, 400, corsHeaders);
+          }
+
+          const now = Date.now();
+          const id = String(body.id || "").trim() || crypto.randomUUID();
+          if (body.id) {
+            const result = await env.DB.prepare(
+              "UPDATE career_positions SET department = ?, title = ?, description = ?, position_type = ?, is_open = ?, updated_at = ? WHERE id = ?"
+            ).bind(department, title, description, positionType, isOpen, now, id).run();
+            if (!Number(result.meta && result.meta.changes || 0)) return json({ error: "Position not found." }, 404, corsHeaders);
+          } else {
+            await env.DB.prepare(
+              "INSERT INTO career_positions (id, department, title, description, position_type, is_open, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            ).bind(id, department, title, description, positionType, isOpen, now, now).run();
+          }
+          return json({ ok: true, id }, 200, corsHeaders);
+        }
 
         if (url.pathname === "/api/staff/applications" && (request.method === "GET" || request.method === "POST")) {
           if (!session) return json({ error: "Please sign in again." }, 401, corsHeaders);
