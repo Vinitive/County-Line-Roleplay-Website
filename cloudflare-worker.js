@@ -272,7 +272,10 @@ export default {
           players: online ? Number(status.player_count) || 0 : 0,
           maxPlayers: Number(status?.max_players) || 32,
           lastHeartbeat: status?.last_heartbeat || null
-        }, 200, corsHeaders);
+        }, 200, {
+          ...cors("https://vinitive.github.io"),
+          "Access-Control-Allow-Origin": "https://vinitive.github.io"
+        });
       }
 
       if (url.pathname.startsWith("/api/")) {
