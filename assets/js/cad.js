@@ -97,11 +97,29 @@ function renderCitizenResults(records){
   }).join(''):empty('No matching citizens found.');
 }
 async function startCitizenAction(kind,citizenid){
- const title=prompt('Report title or violation:');
- if(!title)return;
- const details=prompt('Enter report details:')||'';
- const recordType=kind==='citation'?'Citation':'Incident Report';
- await req('POST',{action:'createRecord',record_type:recordType,subject:citizenid,title,details});
+ if(kind==='arrest'){
+  const r=await req('POST',{action:'getCharges'});
+  const charges=r.charges||[];
+  if(!charges.length)throw new Error('No active charges are available.');
+  const menu=charges.map(c=>c.id+': '+c.code+' '+c.title+' (RP $'+Number(c.roleplay_fine||0)+', '+Number(c.roleplay_jail_minutes||0)+' min)').join(' | ');
+  const selected=prompt('Enter one or more charge IDs separated by commas:\n'+menu);
+  if(!selected)return;
+  const chargeIds=selected.split(',').map(v=>v.trim()).filter(Boolean);
+  const narrative=prompt('Enter the arrest narrative:');
+  if(!narrative)return;
+  await req('POST',{action:'createArrest',citizenid,chargeIds,narrative});
+ }else{
+  const title=prompt(kind==='citation'?'Citation violation:':'Incident report title:');
+  if(!title)return;
+  const details=prompt(kind==='citation'?'Citation details:':'Incident narrative:')||'';
+  if(kind==='citation'){
+   const fine=Number(prompt('Citation fine amount ($):'));
+   if(!Number.isFinite(fine)||fine<0)throw new Error('Enter a valid citation fine.');
+   await req('POST',{action:'createRecord',record_type:'Citation',subject:citizenid,title,details:'Fine: $'+fine+' - '+details});
+  }else{
+   await req('POST',{action:'createRecord',record_type:'Incident Report',subject:citizenid,title,details});
+  }
+ }
  note('Report saved.');
  await openCitizenProfile(citizenid);
 }
