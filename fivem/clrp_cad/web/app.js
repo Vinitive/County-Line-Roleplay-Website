@@ -43,19 +43,21 @@ function nearestPostal(x,y){let best=Infinity,hit=null;for(const p of postalData
 function startMapPlacement(){if(state.access!=='dispatch'){message('Only Dispatch can place calls on the map.');return;}switchPanel('map');placingCall=true;$('mapHint').textContent='Click the incident location on the map.';message('Map placement active · click the incident location.');}
 function initDispatchMap(){
  if(dispatchMap||!window.L)return;
- const cfg={image:[6144,9216],topLeft:[-4140,8400],bottomRight:[4860,-5100],maxZoom:6};
+ const cfg={image:[6144,9216],topLeft:[-4140,8400],bottomRight:[4860,-5100],tileSize:256,maxZoom:6,defaultZoom:3,defaultCenter:[1650,450]};
  const crs=Object.create(L.CRS.Simple);
  const u=cfg.image[0]/((cfg.bottomRight[0]-cfg.topLeft[0])*Math.pow(2,cfg.maxZoom));
  const d=cfg.image[1]/((cfg.bottomRight[1]-cfg.topLeft[1])*Math.pow(2,cfg.maxZoom));
  crs.transformation=new L.Transformation(u,-u*cfg.topLeft[0],d,-d*cfg.topLeft[1]);
+ crs.wrapLng=[cfg.topLeft[0],cfg.bottomRight[0]];
+ crs.wrapLat=[cfg.bottomRight[1],cfg.topLeft[1]];
  crs.infinite=false;crs.scale=z=>Math.pow(2,z);crs.zoom=s=>Math.log(s)/Math.LN2;crs.distance=(a,b)=>{const dx=b.lng-a.lng,dy=b.lat-a.lat;return Math.sqrt(dx*dx+dy*dy);};
- dispatchMap=L.map('clrpDispatchMap',{crs,maxZoom:cfg.maxZoom,zoomControl:true,attributionControl:true});
- L.tileLayer('https://postal-code-map-tile.pages.dev/tiles/{z}/{x}/{y}.png',{tileSize:cfg.tileSize||256,maxNativeZoom:cfg.maxZoom,noWrap:true,attribution:'Four-digit postal map · Virus_City / Acc-Off'}).addTo(dispatchMap);
- dispatchMap.setView([450,1650],3);
+ const mapBounds=[[cfg.bottomRight[1],cfg.topLeft[0]],[cfg.topLeft[1],cfg.bottomRight[0]]];
+ dispatchMap=L.map('clrpDispatchMap',{crs,center:cfg.defaultCenter,zoom:cfg.defaultZoom,minZoom:0,maxZoom:cfg.maxZoom,maxBounds:mapBounds,maxBoundsViscosity:1.0,zoomControl:true,attributionControl:true,preferCanvas:true});
+ L.tileLayer('https://postal-code-map-tile.pages.dev/tiles/{z}/{x}/{y}.png',{tileSize:cfg.tileSize,minZoom:0,maxZoom:cfg.maxZoom,maxNativeZoom:cfg.maxZoom,noWrap:true,bounds:mapBounds,attribution:'Four-digit postal map · Virus_City / Acc-Off'}).addTo(dispatchMap);
  drawCallMarkers();
  postalData = BUILT_IN_POSTALS; $('mapHint').textContent = `Postal map ready · ${postalData.length} postal locations loaded.`;
  dispatchMap.on('click',e=>{if(!placingCall)return;placingCall=false;const x=e.latlng.lng,y=e.latlng.lat,postal=nearestPostal(x,y);$('mapHint').textContent='Selected postal: '+(postal?postal.code:'not found')+'. Complete call details.';openForm('CREATE DISPATCH CALL',[{name:'call_type',label:'CALL TYPE',required:true},{name:'location',label:'LOCATION / ADDRESS',required:true},{name:'priority',label:'PRIORITY',type:'select',options:['1 - Emergency','2 - Urgent','3 - Routine','4 - Information']},{name:'description',label:'CALL DETAILS',type:'textarea',full:true},{name:'postal',type:'hidden',value:postal?postal.code:''},{name:'mapX',type:'hidden',value:x.toFixed(2)},{name:'mapY',type:'hidden',value:y.toFixed(2)}],'createCall');});
- $('mapPlaceCall').addEventListener('click',startMapPlacement);$('mapReset').addEventListener('click',()=>dispatchMap.setView([450,1650],3));
+ $('mapPlaceCall').addEventListener('click',startMapPlacement);$('mapReset').addEventListener('click',()=>dispatchMap.setView([1650,450],3));
 }
 function drawCallMarkers(){if(!dispatchMap||!window.L)return;const active=new Set();(state.calls||[]).forEach(c=>{if(c.mapX==null||c.mapY==null)return;const x=Number(c.mapX),y=Number(c.mapY);if(!Number.isFinite(x)||!Number.isFinite(y)||x< -4140||x>4860||y< -5100||y>8400)return;active.add(c.id);let marker=callMarkers.get(c.id);const color=String(c.priority||'').startsWith('1')?'#ef4444':String(c.priority||'').startsWith('2')?'#f97316':'#eab308';const icon=L.divIcon({className:'call-marker-wrap',html:'<span class="call-marker" style="--marker-color:'+color+'"></span>',iconSize:[24,24],iconAnchor:[12,12]});if(!marker){marker=L.marker([y,x],{icon,draggable:state.access==='dispatch'}).addTo(dispatchMap);callMarkers.set(c.id,marker);marker.on('dragend',()=>{const p=marker.getLatLng();send('request',{action:'moveCallBlip',callId:c.id,mapX:p.lng,mapY:p.lat});});}else{marker.setLatLng([y,x]);marker.setIcon(icon);if(marker.dragging)state.access==='dispatch'?marker.dragging.enable():marker.dragging.disable();}const postalMatch=String(c.location||'').match(/Postal (\d{4})/);marker.bindPopup('<b>'+esc(c.call_number)+' · '+esc(c.call_type)+'</b><br>'+esc(c.location)+'<br>Postal '+esc(c.postal||(postalMatch?postalMatch[1]:'—'))+' · '+esc(c.status));});for(const [id,m] of callMarkers)if(!active.has(id)){dispatchMap.removeLayer(m);callMarkers.delete(id);}}
 window.addEventListener('message',e=>{
