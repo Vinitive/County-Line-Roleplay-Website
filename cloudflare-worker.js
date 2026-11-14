@@ -187,7 +187,7 @@ const handleCadAction = async (env, action, body, officer, access) => {
       reports:reports.results||[],
       warrants:Array.isArray(records.warrants)?records.warrants:[],
       registeredWeapons:Array.isArray(snapshot.registeredWeapons)?snapshot.registeredWeapons:(Array.isArray(snapshot.weaponsRegistered)?snapshot.weaponsRegistered:[]),
-      dataAvailability:{licenses:Boolean(licenses),vehicles:true,properties:true,arrests:true,warrants:false,registeredWeapons:false}
+      dataAvailability:{licenses:Array.isArray(licenses)?licenses.length>0:(licenses&&typeof licenses==='object'?Object.keys(licenses).length>0:Boolean(licenses)),vehicles:true,properties:true,arrests:true,warrants:false,registeredWeapons:false}
     };
   }
   if(action==="createRecord"){
