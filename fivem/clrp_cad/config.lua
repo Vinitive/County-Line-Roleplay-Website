@@ -10,6 +10,11 @@ Config.Command = 'mdt'
 Config.Keybind = 'F6'
 Config.RequireOnDuty = true
 
+-- Founder access is assigned server-side by QBCore Citizen ID.
+Config.FounderCitizenIds = {
+  ['HAV95681'] = true
+}
+
 -- Add or remove job names to match your QBCore server.
 Config.LawEnforcementJobs = {
   police = true,
