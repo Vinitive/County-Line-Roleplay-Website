@@ -123,11 +123,42 @@ const handleCadAction = async (env, action, body, officer, access) => {
     if(status==="Closed"){await env.DB.prepare("DELETE FROM cad_call_units WHERE call_id=?").bind(id).run();await env.DB.prepare("UPDATE cad_units SET current_call_id=NULL,status='Available',last_seen=? WHERE current_call_id=?").bind(now,id).run();}
     await audit("call.status",id,status);return {message:"Call status updated.",refresh:true};
   }
+  if(action==="getCharges"){
+    if(!leo)return {error:"Only Law Enforcement can access the charge catalog."};
+    const result=await env.DB.prepare("SELECT id,code,title,category,offense_class,statute,description,statutory_penalty,roleplay_fine,roleplay_jail_minutes FROM cad_charge_catalog WHERE active=1 ORDER BY category,title").all();
+    return {charges:result.results||[]};
+  }
+  if(action==="createArrest"){
+    if(!leo)return {error:"Only Law Enforcement can create arrests."};
+    const citizenid=String(body.citizenid||"").trim(),narrative=String(body.narrative||"").trim().slice(0,5000),ids=[...new Set((Array.isArray(body.chargeIds)?body.chargeIds:[]).map(x=>String(x).slice(0,80)))];
+    if(!citizenid||!narrative||!ids.length)return {error:"Select at least one charge and enter an arrest narrative."};
+    const person=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE citizenid=?").bind(citizenid).first();
+    if(!person)return {error:"Linked character not found."};
+    const marks=ids.map(()=>"?").join(",");
+    const selected=await env.DB.prepare("SELECT id,code,title,category,offense_class,statute,statutory_penalty,roleplay_fine,roleplay_jail_minutes FROM cad_charge_catalog WHERE active=1 AND id IN ("+marks+")").bind(...ids).all();
+    const charges=selected.results||[];if(charges.length!==ids.length)return {error:"One or more selected charges are unavailable."};
+    const totalFine=charges.reduce((n,c)=>n+Number(c.roleplay_fine||0),0),totalJail=charges.reduce((n,c)=>n+Number(c.roleplay_jail_minutes||0),0),id=crypto.randomUUID();
+    await env.DB.prepare("INSERT INTO cad_arrests (id,citizenid,character_name,narrative,officer_citizenid,officer_name,total_roleplay_fine,total_roleplay_jail_minutes,created_at) VALUES (?,?,?,?,?,?,?,?,?)").bind(id,citizenid,person.character_name,narrative,officer.citizenid,officer.name,totalFine,totalJail,now).run();
+    for(const c of charges)await env.DB.prepare("INSERT INTO cad_arrest_charges (id,arrest_id,charge_id,charge_code,charge_title,offense_class,statute,statutory_penalty,roleplay_fine,roleplay_jail_minutes) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(crypto.randomUUID(),id,c.id,c.code,c.title,c.offense_class,c.statute,c.statutory_penalty,c.roleplay_fine,c.roleplay_jail_minutes).run();
+    await audit("arrest.created",id,person.character_name+" · "+charges.map(c=>c.code).join(", "));
+    return {message:"Arrest record saved.",arrestId:id,totalFine,totalJail,refresh:true};
+  }
   if(action==="search"){
     if(!leo)return {error:"Records search is restricted to Law Enforcement."};const q=String(body.query||"").trim().slice(0,100);if(q.length<2)return {error:"Enter at least two characters."};let rows=[];
-    if(body.searchType==="vehicle"){const x=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE payload LIKE ? LIMIT 30").bind("%"+q+"%").all();rows=(x.results||[]).map(v=>({name:v.character_name,citizenid:v.citizenid,details:"Vehicle data match in linked character record."}));}
-    else{const x=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE citizenid LIKE ? OR character_name LIKE ? LIMIT 30").bind("%"+q+"%","%"+q+"%").all();rows=(x.results||[]).map(v=>({name:v.character_name,citizenid:v.citizenid,details:"Citizen ID: "+v.citizenid}));}
-    const x=await env.DB.prepare("SELECT record_type,subject,title,details,created_at FROM cad_records WHERE subject LIKE ? OR title LIKE ? ORDER BY created_at DESC LIMIT 30").bind("%"+q+"%","%"+q+"%").all();rows.push(...(x.results||[]).map(v=>({name:v.title,details:v.record_type+" · "+v.subject+" · "+v.details,created_at:v.created_at})));await audit("records.search",null,q);return {records:rows};
+    if(body.searchType==="vehicle"){const x=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE payload LIKE ? LIMIT 30").bind("%"+q+"%").all();rows=(x.results||[]).map(v=>({type:"vehicle",name:v.character_name,citizenid:v.citizenid,details:"Vehicle data match in linked character record."}));}
+    else{
+      const x=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE citizenid LIKE ? OR character_name LIKE ? LIMIT 30").bind("%"+q+"%","%"+q+"%").all();
+      for(const v of x.results||[]){
+        const arrests=await env.DB.prepare("SELECT id,narrative,officer_name,total_roleplay_fine,total_roleplay_jail_minutes,created_at FROM cad_arrests WHERE citizenid=? ORDER BY created_at DESC LIMIT 50").bind(v.citizenid).all();
+        const history=[];
+        for(const a of arrests.results||[]){
+          const cs=await env.DB.prepare("SELECT charge_code,charge_title,offense_class,statute,statutory_penalty,roleplay_fine,roleplay_jail_minutes FROM cad_arrest_charges WHERE arrest_id=? ORDER BY charge_title").bind(a.id).all();
+          history.push({...a,charges:cs.results||[]});
+        }
+        rows.push({type:"person",name:v.character_name,citizenid:v.citizenid,details:"Citizen ID: "+v.citizenid,history});
+      }
+    }
+    const x=await env.DB.prepare("SELECT record_type,subject,title,details,created_at FROM cad_records WHERE subject LIKE ? OR title LIKE ? ORDER BY created_at DESC LIMIT 30").bind("%"+q+"%","%"+q+"%").all();rows.push(...(x.results||[]).map(v=>({type:"report",name:v.title,details:v.record_type+" · "+v.subject+" · "+v.details,created_at:v.created_at})));await audit("records.search",null,q);return {records:rows};
   }
   if(action==="createRecord"){
     if(!leo)return {error:"Only Law Enforcement can create reports."};const type=String(body.record_type||"Incident Report").slice(0,50),subject=String(body.subject||"").trim().slice(0,120),title=String(body.title||"").trim().slice(0,150),details=String(body.details||"").trim().slice(0,5000);if(!subject||!title||!details)return {error:"Subject, title, and narrative are required."};
