@@ -43,7 +43,7 @@ function initDispatchMap(){
   const crs=Object.create(L.CRS.Simple);
   const u=config.image[0]/((config.bottomRight[0]-config.topLeft[0])*Math.pow(2,config.maxZoom));
   const d=config.image[1]/((config.bottomRight[1]-config.topLeft[1])*Math.pow(2,config.maxZoom));
-  crs.transformation=new L.Transformation(u,-u*config.topLeft[0],d,-d*config.topLeft[1]);
+  crs.transformation=new L.Transformation(u,-u*config.topLeft[0],-d,d*config.topLeft[1]);
   crs.wrapLng=[config.topLeft[0],config.bottomRight[0]];
   crs.wrapLat=[config.bottomRight[1],config.topLeft[1]];
   crs.infinite=false;
