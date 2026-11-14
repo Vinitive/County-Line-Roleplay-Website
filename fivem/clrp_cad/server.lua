@@ -11,6 +11,8 @@ local function getAccess(src)
   local leo = Config.LawEnforcementJobs[jobName] == true
   local dispatch = Config.DispatchJobs[jobName] == true
   if Config.RequireOnDuty and not onDuty then return nil end
+  local citizenid = tostring(Player.PlayerData.citizenid or '')
+  if leo and Config.FounderCitizenIds and Config.FounderCitizenIds[citizenid] == true then return 'founder', Player end
   if leo then return 'leo', Player end
   if dispatch then return 'dispatch', Player end
   return nil
