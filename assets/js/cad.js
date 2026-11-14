@@ -20,54 +20,44 @@ $('webNewCall').addEventListener('click',()=>{switchView('map');placingCall=true
 $('webNewReport').addEventListener('click',()=>form('NEW INCIDENT REPORT',[{name:'record_type',label:'REPORT TYPE',type:'select',options:['Incident Report','Arrest Report','Citation']},{name:'subject',label:'SUBJECT / CITIZEN ID',required:true},{name:'title',label:'REPORT TITLE',required:true},{name:'details',label:'NARRATIVE',type:'textarea',full:true,required:true}], 'createRecord'));
 $('webNewBolo').addEventListener('click',()=>form('CREATE BOLO',[{name:'bolo_type',label:'BOLO TYPE',type:'select',options:['Person','Vehicle','Other']},{name:'title',label:'SUBJECT / VEHICLE',required:true},{name:'description',label:'DESCRIPTION',type:'textarea',full:true,required:true}], 'createBolo'));
 $('mapPlaceCall').addEventListener('click',()=>{switchView('map');placingCall=true;$('mapHint').textContent='Click the incident location on the map to continue.';note('Map placement active · Click the incident location.');});
-$('mapReset').addEventListener('click',()=>{if(dispatchMap)dispatchMap.fitBounds([[0,0],[8192,8192]]);});
+$('mapReset').addEventListener('click',()=>{if(dispatchMap)dispatchMap.fitBounds([[-5100,-4140],[8400,4860]]);});
 async function loadPostalOverlay(){
+  const postalTiles='https://postal-code-map-tile.pages.dev/tiles/{z}/{x}/{y}.png';
+  L.tileLayer(postalTiles,{tileSize:256,minZoom:0,maxZoom:6,maxNativeZoom:6,noWrap:true,bounds:[[-5100,-4140],[8400,4860]],attribution:'Four-digit postal map · Virus_City / Acc-Off'}).addTo(dispatchMap);
   try{
     const response=await fetch('assets/data/postals.json',{cache:'force-cache'});
-    if(!response.ok)throw new Error('Postal data unavailable');
-    postalData=(await response.json()).filter(p=>/^\d{4}$/.test(String(p.code)));
-    if(!dispatchMap||!postalData.length)return;
-    const PostalLayer=L.GridLayer.extend({
-      createTile(coords){
-        const canvas=document.createElement('canvas'),size=this.getTileSize();canvas.width=size.x;canvas.height=size.y;
-        const ctx=canvas.getContext('2d');if(!ctx)return canvas;
-        const z=coords.z;if(z<2)return canvas;
-        const mapSize=256*Math.pow(2,z),startX=coords.x*256,startY=coords.y*256;
-        ctx.font=(z>=5?'700 10px':'700 9px')+' monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
-        for(let i=0;i<postalData.length;i++){
-          if(z===2&&i%8!==0)continue;if(z===3&&i%4!==0)continue;if(z===4&&i%2!==0)continue;
-          const p=postalData[i];
-          const gtaPx=((p.x+9655.77)/20357.85)*mapSize;
-          const gtaPy=((12343.94-p.y)/20357.85)*mapSize;
-          if(gtaPx<startX-30||gtaPx>startX+286||gtaPy<startY-15||gtaPy>startY+271)continue;
-          const x=gtaPx-startX,y=gtaPy-startY;
-          ctx.strokeStyle='rgba(0,0,0,.95)';ctx.lineWidth=3;ctx.strokeText(p.code,x,y);
-          ctx.fillStyle='#fff';ctx.fillText(p.code,x,y);
-        }
-        return canvas;
-      }
-    });
-    new PostalLayer({minZoom:0,maxZoom:5,noWrap:true,opacity:.92, pane:'overlayPane'}).addTo(dispatchMap);
-    $('mapHint').textContent='Four-digit postal codes loaded · Select “Place New Call” to create an incident.';
-  }catch(error){console.warn('CLRP postal map:',error);$('mapHint').textContent='Postal overlay could not be loaded.';}
+    if(!response.ok)throw new Error('Postal coordinate data unavailable');
+    postalData=(await response.json()).filter(p=>/^\\d{4}$/.test(String(p.code)));
+    $('mapHint').textContent='Four-digit postal map loaded · Select “Place New Call” to create an incident.';
+  }catch(error){console.warn('CLRP postal lookup:',error);$('mapHint').textContent='Postal map loaded; automatic postal lookup is unavailable.';}
 }
-function nearestPostal(mapX,mapY){
+function nearestPostal(x,y){
   if(!postalData.length)return null;
-  const gtaX=(mapX/8192)*20357.85-9655.77,gtaY=12343.94-(mapY/8192)*20357.85;
   let nearest=null,best=Infinity;
-  for(const p of postalData){const d=(p.x-gtaX)*(p.x-gtaX)+(p.y-gtaY)*(p.y-gtaY);if(d<best){best=d;nearest=p;}}
+  for(const p of postalData){const d=(p.x-x)*(p.x-x)+(p.y-y)*(p.y-y);if(d<best){best=d;nearest=p;}}
   return nearest;
 }
 function initDispatchMap(){
   if(dispatchMap||!window.L)return;
-  const CRS=L.extend({},L.CRS.Simple,{transformation:new L.Transformation(1/32,0,1/32,0)});
-  dispatchMap=L.map('clrpDispatchMap',{crs:CRS,minZoom:0,maxZoom:5,zoomControl:true,attributionControl:true});
-  L.tileLayer('https://viruxe.github.io/gtav-map-tiles/atlas/{z}/{x}-{y}.webp',{minZoom:0,maxZoom:5,noWrap:true,bounds:[[0,0],[8192,8192]],attribution:'Map tiles © GTA V map contributors'}).addTo(dispatchMap);
-  dispatchMap.fitBounds([[0,0],[8192,8192]]);
+  const config={image:[6144,9216],topLeft:[-4140,8400],bottomRight:[4860,-5100],maxZoom:6};
+  const crs=Object.create(L.CRS.Simple);
+  const u=config.image[0]/((config.bottomRight[0]-config.topLeft[0])*Math.pow(2,config.maxZoom));
+  const d=config.image[1]/((config.bottomRight[1]-config.topLeft[1])*Math.pow(2,config.maxZoom));
+  crs.transformation=new L.Transformation(u,-u*config.topLeft[0],d,-d*config.topLeft[1]);
+  crs.wrapLng=[config.topLeft[0],config.bottomRight[0]];
+  crs.wrapLat=[config.bottomRight[1],config.topLeft[1]];
+  crs.infinite=false;
+  crs.scale=zoom=>Math.pow(2,zoom);
+  crs.zoom=scale=>Math.log(scale)/Math.LN2;
+  crs.distance=(a,b)=>Math.hypot(b.lng-a.lng,b.lat-a.lat);
+  const bounds=[[-5100,-4140],[8400,4860]];
+  dispatchMap=L.map('clrpDispatchMap',{crs,minZoom:0,maxZoom:6,zoomControl:true,attributionControl:true,maxBounds:bounds,maxBoundsViscosity:1,preferCanvas:true});
+  loadPostalOverlay();
+  dispatchMap.fitBounds(bounds);
   dispatchMap.on('click',e=>{
     if(!placingCall)return;
     placingCall=false;
-    const x=Math.max(0,Math.min(8192,e.latlng.lng)),y=Math.max(0,Math.min(8192,e.latlng.lat));
+    const x=e.latlng.lng,y=e.latlng.lat;
     const postal=nearestPostal(x,y),postalCode=postal?String(postal.code):'';
     $('mapHint').textContent='Location selected · Postal '+(postalCode||'not found')+'. Complete the call details.';
     form('CREATE DISPATCH CALL',[
@@ -80,11 +70,10 @@ function initDispatchMap(){
       {name:'mapY',type:'hidden',value:y.toFixed(2)}
     ],'createCall');
   });
-  loadPostalOverlay();
   drawCallMarkers();
 }
 function priorityColor(p){return String(p||'').startsWith('1')?'#ef4444':String(p||'').startsWith('2')?'#f97316':String(p||'').startsWith('4')?'#3b82f6':'#eab308';}
-function drawCallMarkers(){if(!dispatchMap||!window.L)return;const active=new Set();(data.calls||[]).forEach(c=>{if(c.mapX==null||c.mapY==null)return;active.add(c.id);let marker=callMarkers.get(c.id);const color=priorityColor(c.priority);const html='<div class="cad-map-popup"><b>'+esc(c.call_number)+' · '+esc(c.call_type)+'</b><p>'+esc(c.location)+'</p><small>Priority '+esc(c.priority)+' · '+esc(c.status)+'</small><p>'+esc(c.description||'')+'</p></div>';const icon=L.divIcon({className:'cad-call-marker-wrap',html:'<span class="cad-call-marker" style="--marker-color:'+color+'"></span>',iconSize:[24,24],iconAnchor:[12,12]});if(!marker){marker=L.marker([Number(c.mapY),Number(c.mapX)],{icon,draggable:data.access==='dispatch',autoPan:true}).addTo(dispatchMap);callMarkers.set(c.id,marker);marker.on('dragend',()=>{const p=marker.getLatLng();post('moveCallBlip',{callId:c.id,mapX:p.lng,mapY:p.lat});});}else{marker.setLatLng([Number(c.mapY),Number(c.mapX)]);marker.setIcon(icon);if(marker.dragging)data.access==='dispatch'?marker.dragging.enable():marker.dragging.disable();}marker.bindPopup(html);});for(const [id,m] of callMarkers){if(!active.has(id)){dispatchMap.removeLayer(m);callMarkers.delete(id);}}}
+function drawCallMarkers(){if(!dispatchMap||!window.L)return;const active=new Set();(data.calls||[]).forEach(c=>{if(c.mapX==null||c.mapY==null||Number(c.mapX)<-4140||Number(c.mapX)>4860||Number(c.mapY)<-5100||Number(c.mapY)>8400)return;active.add(c.id);let marker=callMarkers.get(c.id);const color=priorityColor(c.priority);const html='<div class="cad-map-popup"><b>'+esc(c.call_number)+' · '+esc(c.call_type)+'</b><p>'+esc(c.location)+'</p><small>Priority '+esc(c.priority)+' · '+esc(c.status)+'</small><p>'+esc(c.description||'')+'</p></div>';const icon=L.divIcon({className:'cad-call-marker-wrap',html:'<span class="cad-call-marker" style="--marker-color:'+color+'"></span>',iconSize:[24,24],iconAnchor:[12,12]});if(!marker){marker=L.marker([Number(c.mapY),Number(c.mapX)],{icon,draggable:data.access==='dispatch',autoPan:true}).addTo(dispatchMap);callMarkers.set(c.id,marker);marker.on('dragend',()=>{const p=marker.getLatLng();post('moveCallBlip',{callId:c.id,mapX:p.lng,mapY:p.lat});});}else{marker.setLatLng([Number(c.mapY),Number(c.mapX)]);marker.setIcon(icon);if(marker.dragging)data.access==='dispatch'?marker.dragging.enable():marker.dragging.disable();}marker.bindPopup(html);});for(const [id,m] of callMarkers){if(!active.has(id)){dispatchMap.removeLayer(m);callMarkers.delete(id);}}}
 $('webUnitStatus').addEventListener('change',e=>post('setStatus',{status:e.target.value}));
 $('webSearch').addEventListener('submit',async e=>{e.preventDefault();$('webResults').innerHTML=empty('Searching records...');try{const r=await req('POST',{action:'search',searchType:$('webSearchType').value,query:$('webSearchQuery').value});$('webResults').innerHTML=(r.records||[]).length?r.records.map(x=>'<article class="cad-result"><h3>'+esc(x.name||x.title||'Record')+'</h3><p>'+esc(x.details||x.citizenid||'')+'</p></article>').join(''):empty('No matching records found.');}catch(x){$('webResults').innerHTML=empty(x.message);}});
 $('webCalls').addEventListener('click',e=>{const a=e.target.closest('[data-assign]'),u=e.target.closest('[data-update]');if(a)post('assignCall',{callId:a.dataset.assign});if(u){const id=u.dataset.update;post('updateCall',{callId:id,status:document.querySelector('[data-status="'+CSS.escape(id)+'"]').value});}});
