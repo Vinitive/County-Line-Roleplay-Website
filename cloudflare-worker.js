@@ -84,7 +84,7 @@ const hasPermission = (access, permission) =>
 
 
 const handleCadAction = async (env, action, body, officer, access) => {
-  const now=Date.now(), leo=access==="leo", allowed=leo||access==="dispatch";
+  const now=Date.now(), founder=access==="founder", leo=access==="leo"||founder, allowed=leo||access==="dispatch";
   if(!allowed)return {error:"CAD access denied."};
   const audit=async(a,id=null,d="")=>env.DB.prepare("INSERT INTO cad_audit (id,actor_id,actor_name,action,target_id,details,created_at) VALUES (?,?,?,?,?,?,?)").bind(crypto.randomUUID(),officer.citizenid,officer.name,a,id,String(d).slice(0,1000),now).run();
   if(action==="bootstrap"){
@@ -96,7 +96,7 @@ const handleCadAction = async (env, action, body, officer, access) => {
       env.DB.prepare("SELECT call_id,citizenid,callsign,officer_name AS name FROM cad_call_units").all()
     ]);
     const map={};for(const x of a.results||[])(map[x.call_id]??=[]).push({callsign:x.callsign,name:x.name,citizenid:x.citizenid});
-    return {access,officer,calls:(c.results||[]).map(x=>({...x,units:map[x.id]||[]})),units:u.results||[],bolos:b.results||[]};
+    return {access,officer,isFounder:founder,calls:(c.results||[]).map(x=>({...x,units:map[x.id]||[]})),units:u.results||[],bolos:b.results||[]};
   }
   if(action==="setStatus"){
     const status=String(body.status||"");
@@ -149,7 +149,7 @@ const handleCadAction = async (env, action, body, officer, access) => {
     else{
       const x=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE citizenid LIKE ? OR character_name LIKE ? LIMIT 30").bind("%"+q+"%","%"+q+"%").all();
       for(const v of x.results||[]){
-        const arrests=await env.DB.prepare("SELECT id,narrative,officer_name,total_roleplay_fine,total_roleplay_jail_minutes,created_at FROM cad_arrests WHERE citizenid=? ORDER BY created_at DESC LIMIT 50").bind(v.citizenid).all();
+        const arrests=await env.DB.prepare("SELECT id,narrative,officer_name,total_roleplay_fine,total_roleplay_jail_minutes,created_at FROM cad_arrests WHERE citizenid=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 50").bind(v.citizenid).all();
         const history=[];
         for(const a of arrests.results||[]){
           const cs=await env.DB.prepare("SELECT charge_code,charge_title,offense_class,statute,statutory_penalty,roleplay_fine,roleplay_jail_minutes FROM cad_arrest_charges WHERE arrest_id=? ORDER BY charge_title").bind(a.id).all();
@@ -158,7 +158,7 @@ const handleCadAction = async (env, action, body, officer, access) => {
         rows.push({type:"person",name:v.character_name,citizenid:v.citizenid,details:"Citizen ID: "+v.citizenid,history});
       }
     }
-    const x=await env.DB.prepare("SELECT record_type,subject,title,details,created_at FROM cad_records WHERE subject LIKE ? OR title LIKE ? ORDER BY created_at DESC LIMIT 30").bind("%"+q+"%","%"+q+"%").all();rows.push(...(x.results||[]).map(v=>({type:"report",name:v.title,details:v.record_type+" · "+v.subject+" · "+v.details,created_at:v.created_at})));await audit("records.search",null,q);return {records:rows};
+    const x=await env.DB.prepare("SELECT record_type,subject,title,details,created_at FROM cad_records WHERE (subject LIKE ? OR title LIKE ?) AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 30").bind("%"+q+"%","%"+q+"%").all();rows.push(...(x.results||[]).map(v=>({type:"report",name:v.title,details:v.record_type+" · "+v.subject+" · "+v.details,created_at:v.created_at})));await audit("records.search",null,q);return {records:rows};
   }
   if(action==="getCitizenProfile"){
     if(!leo)return {error:"Citizen profiles are restricted to Law Enforcement."};
@@ -168,9 +168,9 @@ const handleCadAction = async (env, action, body, officer, access) => {
     if(!citizen)return {error:"Citizen profile not found."};
     let snapshot={};try{snapshot=JSON.parse(citizen.payload||"{}");}catch(_){}
     const [arrests,charges,reports,licenseRows]=await Promise.all([
-      env.DB.prepare("SELECT id,narrative,officer_name,total_roleplay_fine,total_roleplay_jail_minutes,created_at FROM cad_arrests WHERE citizenid=? ORDER BY created_at DESC LIMIT 100").bind(citizenid).all(),
-      env.DB.prepare("SELECT ac.arrest_id,ac.charge_code,ac.charge_title,ac.offense_class,ac.statute,ac.roleplay_fine,ac.roleplay_jail_minutes,a.created_at FROM cad_arrest_charges ac INNER JOIN cad_arrests a ON a.id=ac.arrest_id WHERE a.citizenid=? ORDER BY a.created_at DESC LIMIT 200").bind(citizenid).all(),
-      env.DB.prepare("SELECT id,record_type,title,details,officer_name,created_at FROM cad_records WHERE subject=? OR subject LIKE ? ORDER BY created_at DESC LIMIT 100").bind(citizenid,"%"+citizenid+"%").all(),
+      env.DB.prepare("SELECT id,narrative,officer_name,total_roleplay_fine,total_roleplay_jail_minutes,created_at FROM cad_arrests WHERE citizenid=? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 100").bind(citizenid).all(),
+      env.DB.prepare("SELECT ac.id,ac.arrest_id,ac.charge_code,ac.charge_title,ac.offense_class,ac.statute,ac.roleplay_fine,ac.roleplay_jail_minutes,a.created_at FROM cad_arrest_charges ac INNER JOIN cad_arrests a ON a.id=ac.arrest_id WHERE a.citizenid=? AND a.deleted_at IS NULL ORDER BY a.created_at DESC LIMIT 200").bind(citizenid).all(),
+      env.DB.prepare("SELECT id,record_type,title,details,officer_name,created_at FROM cad_records WHERE (subject=? OR subject LIKE ?) AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 100").bind(citizenid,"%"+citizenid+"%").all(),
       env.DB.prepare("SELECT id,license_type AS licenseType,license_number AS licenseNumber,status,notes,issued_at AS issuedAt,expires_at AS expiresAt,issued_by_name AS issuedBy,created_at AS createdAt FROM cad_citizen_licenses WHERE citizenid=? ORDER BY created_at DESC").bind(citizenid).all()
     ]);
     const records=snapshot.records||{},profile=snapshot.profile||{};
@@ -244,6 +244,35 @@ const handleCadAction = async (env, action, body, officer, access) => {
     if(!Number(result.meta&&result.meta.changes||0))return {error:"Active weapon registration not found."};
     await audit("weapon.revoked",id,"Registration revoked");
     return {message:"Weapon registration revoked."};
+  }
+  if(action==="founderRemoveArrest"){
+    if(!founder)return {error:"Only the Founder can remove arrest records."};
+    const id=String(body.id||"").trim();if(!id)return {error:"An arrest record ID is required."};
+    const arrest=await env.DB.prepare("SELECT id,citizenid,character_name FROM cad_arrests WHERE id=? AND deleted_at IS NULL").bind(id).first();
+    if(!arrest)return {error:"Active arrest record not found."};
+    await env.DB.prepare("UPDATE cad_arrests SET deleted_at=?,deleted_by=? WHERE id=? AND deleted_at IS NULL").bind(now,officer.citizenid,id).run();
+    await audit("arrest.removed",id,arrest.character_name+" · "+arrest.citizenid);
+    return {message:"Arrest record removed.",refresh:true};
+  }
+  if(action==="founderRemoveCharge"){
+    if(!founder)return {error:"Only the Founder can remove criminal charges."};
+    const id=String(body.id||"").trim();if(!id)return {error:"A charge record ID is required."};
+    const charge=await env.DB.prepare("SELECT ac.id,ac.arrest_id,ac.charge_code,ac.charge_title,a.citizenid FROM cad_arrest_charges ac INNER JOIN cad_arrests a ON a.id=ac.arrest_id WHERE ac.id=? AND a.deleted_at IS NULL").bind(id).first();
+    if(!charge)return {error:"Active criminal charge not found."};
+    await env.DB.prepare("DELETE FROM cad_arrest_charges WHERE id=?").bind(id).run();
+    const totals=await env.DB.prepare("SELECT COALESCE(SUM(roleplay_fine),0) AS fine,COALESCE(SUM(roleplay_jail_minutes),0) AS jail FROM cad_arrest_charges WHERE arrest_id=?").bind(charge.arrest_id).first();
+    await env.DB.prepare("UPDATE cad_arrests SET total_roleplay_fine=?,total_roleplay_jail_minutes=? WHERE id=?").bind(Number(totals?.fine||0),Number(totals?.jail||0),charge.arrest_id).run();
+    await audit("charge.removed",id,charge.charge_code+" · "+charge.charge_title+" · arrest "+charge.arrest_id);
+    return {message:"Criminal charge removed and arrest totals recalculated.",refresh:true};
+  }
+  if(action==="founderRemoveCitation"){
+    if(!founder)return {error:"Only the Founder can remove citations."};
+    const id=String(body.id||"").trim();if(!id)return {error:"A citation ID is required."};
+    const citation=await env.DB.prepare("SELECT id,subject,title FROM cad_records WHERE id=? AND record_type='Citation' AND deleted_at IS NULL").bind(id).first();
+    if(!citation)return {error:"Active citation not found."};
+    await env.DB.prepare("UPDATE cad_records SET deleted_at=?,deleted_by=? WHERE id=? AND record_type='Citation' AND deleted_at IS NULL").bind(now,officer.citizenid,id).run();
+    await audit("citation.removed",id,citation.title+" · "+citation.subject);
+    return {message:"Citation removed.",refresh:true};
   }
   if(action==="createRecord"){
     if(!leo)return {error:"Only Law Enforcement can create reports."};const type=String(body.record_type||"Incident Report").slice(0,50),subject=String(body.subject||"").trim().slice(0,120),title=String(body.title||"").trim().slice(0,150),details=String(body.details||"").trim().slice(0,5000);if(!subject||!title||!details)return {error:"Subject, title, and narrative are required."};
@@ -579,14 +608,14 @@ export default {
         if (url.pathname === "/api/cad" && ["GET","POST"].includes(request.method)) {
           if(!session)return json({error:"Please sign in again."},401,corsHeaders);
           let access;try{access=await getDiscordAccess(env,session.discord_id);}catch(error){return json({error:"Unable to verify your Discord roles."},503,corsHeaders);}
-          const leo=hasPermission(access,"mdt.leo"),dispatch=hasPermission(access,"dispatch.access");
-          if(!leo&&!dispatch)return json({error:"CAD access is restricted to Law Enforcement and Dispatch."},403,corsHeaders);
+          const founder=hasPermission(access,"*"),leo=hasPermission(access,"mdt.leo"),dispatch=hasPermission(access,"dispatch.access");
+          if(!founder&&!leo&&!dispatch)return json({error:"CAD access is restricted to Law Enforcement and Dispatch."},403,corsHeaders);
           const linkedCharacter=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE discord_id=? ORDER BY is_online DESC,last_seen DESC,updated_at DESC LIMIT 1").bind(session.discord_id).first();
           const officer=linkedCharacter
             ? {citizenid:linkedCharacter.citizenid,name:linkedCharacter.character_name,callsign:"",job:leo?"Law Enforcement":"Dispatch"}
             : {citizenid:"discord:"+session.discord_id,name:session.global_name||session.username,callsign:"",job:leo?"Law Enforcement":"Dispatch"};
           const body=request.method==="POST"?await request.json():{};
-          const result=await handleCadAction(env,request.method==="GET"?"bootstrap":String(body.action||"bootstrap"),body,officer,leo?"leo":"dispatch");
+          const result=await handleCadAction(env,request.method==="GET"?"bootstrap":String(body.action||"bootstrap"),body,officer,founder?"founder":leo?"leo":"dispatch");
           return json(result,result.error?400:200,corsHeaders);
         }
 
