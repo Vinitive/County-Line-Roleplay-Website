@@ -96,32 +96,55 @@ function renderCitizenResults(records){
     return '<article class="cad-result"><h3>'+esc(x.name||'Record')+'</h3><p>'+esc(x.details||'')+'</p></article>';
   }).join(''):empty('No matching citizens found.');
 }
-async function startCitizenAction(kind,citizenid){
- if(kind==='arrest'){
-  const r=await req('POST',{action:'getCharges'});
-  const charges=r.charges||[];
-  if(!charges.length)throw new Error('No active charges are available.');
-  const menu=charges.map(c=>c.id+': '+c.code+' '+c.title+' (RP $'+Number(c.roleplay_fine||0)+', '+Number(c.roleplay_jail_minutes||0)+' min)').join(' | ');
-  const selected=prompt('Enter one or more charge IDs separated by commas:\n'+menu);
-  if(!selected)return;
-  const chargeIds=selected.split(',').map(v=>v.trim()).filter(Boolean);
-  const narrative=prompt('Enter the arrest narrative:');
-  if(!narrative)return;
-  await req('POST',{action:'createArrest',citizenid,chargeIds,narrative});
- }else{
-  const title=prompt(kind==='citation'?'Citation violation:':'Incident report title:');
-  if(!title)return;
-  const details=prompt(kind==='citation'?'Citation details:':'Incident narrative:')||'';
-  if(kind==='citation'){
-   const fine=Number(prompt('Citation fine amount ($):'));
-   if(!Number.isFinite(fine)||fine<0)throw new Error('Enter a valid citation fine.');
-   await req('POST',{action:'createRecord',record_type:'Citation',subject:citizenid,title,details:'Fine: $'+fine+' - '+details});
+function closeCitizenReport(){ $('cadModal').hidden=true; $('cadModalBody').innerHTML=''; }
+function openCitizenReportForm(kind,citizenid,charges=[]){
+  const titles={arrest:'CREATE ARREST REPORT',incident:'CREATE INCIDENT REPORT',citation:'ISSUE CITATION'};
+  let fields='';
+  if(kind==='arrest'){
+    fields='<div class="citizen-report-field full"><label>CHARGES <span>Select every applicable charge</span></label><div class="citizen-report-charge-list">'+charges.map(c=>'<label class="citizen-report-charge"><input type="checkbox" name="chargeIds" value="'+esc(c.id)+'"><span><b>'+esc(c.code)+' · '+esc(c.title)+'</b><small>'+esc(c.category||'')+' · '+esc(c.offense_class||'')+'</small></span><strong>$'+Number(c.roleplay_fine||0).toLocaleString()+' · '+Number(c.roleplay_jail_minutes||0)+' min</strong></label>').join('')+'</div></div><label class="citizen-report-field full">ARREST NARRATIVE<textarea name="narrative" rows="6" required placeholder="Describe the circumstances of the arrest, probable cause, and relevant details..."></textarea></label>';
   }else{
-   await req('POST',{action:'createRecord',record_type:'Incident Report',subject:citizenid,title,details});
+    fields='<label class="citizen-report-field full">'+(kind==='citation'?'VIOLATION / OFFENSE':'REPORT TITLE')+'<input name="title" required placeholder="'+(kind==='citation'?'Enter the cited violation':'Enter a clear report title')+'"></label><label class="citizen-report-field full">'+(kind==='citation'?'CITATION DETAILS':'INCIDENT NARRATIVE')+'<textarea name="details" rows="6" required placeholder="Enter the full details..."></textarea></label>';
+    if(kind==='citation')fields+='<label class="citizen-report-field">FINE AMOUNT ($)<input name="fine" type="number" min="0" step="1" required placeholder="0"></label>';
   }
- }
- note('Report saved.');
- await openCitizenProfile(citizenid);
+  $('cadModalBody').innerHTML='<div class="citizen-report-heading"><small>COUNTY LINE ROLEPLAY · CITIZEN DOSSIER</small><h2>'+titles[kind]+'</h2><p>Citizen ID: '+esc(citizenid)+'</p></div><form id="citizenReportForm" class="citizen-report-form">'+fields+'<div class="citizen-report-error" id="citizenReportError" role="alert"></div><div class="citizen-report-footer"><button type="button" class="btn btn-outline" id="citizenReportCancel">CANCEL</button><button type="submit" class="btn btn-gold" id="citizenReportSubmit">'+(kind==='citation'?'ISSUE CITATION':'SAVE REPORT')+'</button></div></form>';
+  $('cadModal').hidden=false;
+  $('citizenReportCancel').addEventListener('click',closeCitizenReport);
+  $('citizenReportForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const submit=$('citizenReportSubmit'),error=$('citizenReportError');
+    submit.disabled=true;submit.textContent='SAVING...';error.textContent='';
+    try{
+      const fd=new FormData(e.currentTarget);
+      if(kind==='arrest'){
+        const chargeIds=fd.getAll('chargeIds');
+        if(!chargeIds.length)throw new Error('Select at least one charge.');
+        const narrative=String(fd.get('narrative')||'').trim();
+        if(!narrative)throw new Error('Enter the arrest narrative.');
+        await req('POST',{action:'createArrest',citizenid,chargeIds,narrative});
+      }else{
+        const title=String(fd.get('title')||'').trim(),details=String(fd.get('details')||'').trim();
+        if(!title||!details)throw new Error('Complete all required fields.');
+        if(kind==='citation'){
+          const fine=Number(fd.get('fine'));
+          if(!Number.isFinite(fine)||fine<0)throw new Error('Enter a valid citation fine.');
+          await req('POST',{action:'createRecord',record_type:'Citation',subject:citizenid,title,details:'Fine: $'+fine+' - '+details});
+        }else{
+          await req('POST',{action:'createRecord',record_type:'Incident Report',subject:citizenid,title,details});
+        }
+      }
+      closeCitizenReport();note('Report saved.');await openCitizenProfile(citizenid);
+    }catch(err){error.textContent=err.message||'Unable to save this report.';submit.disabled=false;submit.textContent=kind==='citation'?'ISSUE CITATION':'SAVE REPORT';}
+  });
+}
+async function startCitizenAction(kind,citizenid){
+  try{
+    if(kind==='arrest'){
+      const r=await req('POST',{action:'getCharges'});
+      const charges=r.charges||[];
+      if(!charges.length)throw new Error('No active charges are available.');
+      openCitizenReportForm(kind,citizenid,charges);
+    }else openCitizenReportForm(kind,citizenid);
+  }catch(error){note(error.message||'Unable to open report form.');}
 }
 async function openCitizenProfile(citizenid){
   $('webResults').innerHTML=empty('Loading citizen dossier...');
