@@ -186,9 +186,34 @@ const handleCadAction = async (env, action, body, officer, access) => {
       legacyCharges:Array.isArray(records.charges)?records.charges:[],
       reports:reports.results||[],
       warrants:Array.isArray(records.warrants)?records.warrants:[],
-      registeredWeapons:Array.isArray(snapshot.registeredWeapons)?snapshot.registeredWeapons:(Array.isArray(snapshot.weaponsRegistered)?snapshot.weaponsRegistered:[]),
-      dataAvailability:{licenses:Array.isArray(licenses)?licenses.length>0:(licenses&&typeof licenses==='object'?Object.keys(licenses).length>0:Boolean(licenses)),vehicles:true,properties:true,arrests:true,warrants:false,registeredWeapons:false}
+      registeredWeapons:(await env.DB.prepare("SELECT id,weapon_name AS weaponName,serial,notes,status,registered_by_name AS registeredBy,created_at,updated_at FROM cad_registered_weapons WHERE citizenid=? ORDER BY created_at DESC").bind(citizenid).all()).results||[],
+      dataAvailability:{licenses:Array.isArray(licenses)?licenses.length>0:(licenses&&typeof licenses==='object'?Object.keys(licenses).length>0:Boolean(licenses)),vehicles:true,properties:true,arrests:true,warrants:false,registeredWeapons:true}
     };
+  }
+  if(action==="createRegisteredWeapon"){
+    if(!leo)return {error:"Only Law Enforcement can register weapons."};
+    const citizenid=String(body.citizenid||"").trim();
+    const weaponName=String(body.weaponName||"").trim().slice(0,120);
+    const serial=String(body.serial||"").trim().slice(0,100);
+    const notes=String(body.notes||"").trim().slice(0,1000);
+    if(!/^[A-Za-z0-9_-]{2,64}$/.test(citizenid)||!weaponName||!serial)return {error:"Citizen ID, weapon name, and serial number are required."};
+    const citizen=await env.DB.prepare("SELECT citizenid FROM portal_characters WHERE citizenid=?").bind(citizenid).first();
+    if(!citizen)return {error:"Citizen profile not found."};
+    const duplicate=await env.DB.prepare("SELECT id FROM cad_registered_weapons WHERE serial=? AND status='Registered' LIMIT 1").bind(serial).first();
+    if(duplicate)return {error:"That serial number is already registered."};
+    const id=crypto.randomUUID();
+    await env.DB.prepare("INSERT INTO cad_registered_weapons (id,citizenid,weapon_name,serial,notes,status,registered_by,registered_by_name,created_at,updated_at) VALUES (?,?,?,?,?,'Registered',?,?,?,?)").bind(id,citizenid,weaponName,serial,notes,officer.citizenid,officer.name,now,now).run();
+    await audit("weapon.registered",id,citizenid+":"+weaponName);
+    return {message:"Weapon registered to citizen.",id};
+  }
+  if(action==="revokeRegisteredWeapon"){
+    if(!leo)return {error:"Only Law Enforcement can update weapon registrations."};
+    const id=String(body.id||"").trim();
+    if(!id)return {error:"A weapon registration ID is required."};
+    const result=await env.DB.prepare("UPDATE cad_registered_weapons SET status='Revoked',updated_at=? WHERE id=? AND status='Registered'").bind(now,id).run();
+    if(!Number(result.meta&&result.meta.changes||0))return {error:"Active weapon registration not found."};
+    await audit("weapon.revoked",id,"Registration revoked");
+    return {message:"Weapon registration revoked."};
   }
   if(action==="createRecord"){
     if(!leo)return {error:"Only Law Enforcement can create reports."};const type=String(body.record_type||"Incident Report").slice(0,50),subject=String(body.subject||"").trim().slice(0,120),title=String(body.title||"").trim().slice(0,150),details=String(body.details||"").trim().slice(0,5000);if(!subject||!title||!details)return {error:"Subject, title, and narrative are required."};
