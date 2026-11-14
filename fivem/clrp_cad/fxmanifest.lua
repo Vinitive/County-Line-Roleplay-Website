@@ -23,7 +23,8 @@ server_scripts {
 files {
   'web/index.html',
   'web/style.css',
-  'web/app.js'
+  'web/app.js',
+  'web/postals.json'
 }
 
 dependency 'qb-core'
