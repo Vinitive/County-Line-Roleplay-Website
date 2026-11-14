@@ -38,8 +38,8 @@ $('searchForm').addEventListener('submit',e=>{e.preventDefault();$('searchResult
 $('callsList').addEventListener('click',e=>{const assign=e.target.closest('[data-assign]'),update=e.target.closest('[data-update]');if(assign)send('assignCall',{callId:assign.dataset.assign});if(update){const id=update.dataset.update;const select=document.querySelector('[data-status="'+CSS.escape(id)+'"]');send('updateCall',{callId:id,status:select?.value||'Pending'});}});
 window.addEventListener('message',e=>{
  const d=e.data||{};
- if(d.action==='open'){document.body.style.setProperty('display','block','important');$('app').hidden=false;}
- if(d.action==='close'){$('app').hidden=true;$('modal').hidden=true;document.body.style.setProperty('display','none','important');}
+ if(d.action==='open'){document.body.style.setProperty('visibility','visible','important');$('app').hidden=false;}
+ if(d.action==='close'){$('app').hidden=true;$('modal').hidden=true;document.body.style.setProperty('visibility','hidden','important');}
  if(d.action==='bootstrap'){state={...state,...(d.data||{})};$('unitName').textContent=state.officer?.callsign||state.officer?.name||'AUTHORIZED UNIT';if(state.status)$('unitStatus').value=state.status;render();message('Secure connection established.');}
  if(d.action==='result'){
   if(d.data?.error){message(d.data.error);return;}
