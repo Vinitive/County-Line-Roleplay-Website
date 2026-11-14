@@ -37,8 +37,103 @@ function openForm(title,fields,submitName){
 $('newCallBtn').addEventListener('click',startMapPlacement);
 $('newReportBtn').addEventListener('click',()=>openForm('NEW INCIDENT REPORT',[{name:'record_type',label:'REPORT TYPE',type:'select',options:['Incident Report','Arrest Report','Citation']},{name:'subject',label:'SUBJECT / CITIZEN ID',required:true},{name:'title',label:'REPORT TITLE',required:true},{name:'details',label:'NARRATIVE',type:'textarea',full:true,required:true}], 'createRecord'));
 $('newBoloBtn').addEventListener('click',()=>openForm('CREATE BOLO',[{name:'bolo_type',label:'BOLO TYPE',type:'select',options:['Person','Vehicle','Other']},{name:'title',label:'SUBJECT / VEHICLE',required:true},{name:'description',label:'DESCRIPTION',type:'textarea',full:true,required:true}], 'createBolo'));
-$('searchForm').addEventListener('submit',e=>{e.preventDefault();$('searchResults').innerHTML=empty('Searching records...');send('search',{searchType:$('searchType').value,query:$('searchQuery').value});});
+$('searchForm').addEventListener('submit',e=>{e.preventDefault();$('searchResults').innerHTML=empty('Searching citizens...');send('search',{searchType:'person',query:$('searchQuery').value});});
+$('searchResults').addEventListener('click',e=>{
+ const profile=e.target.closest('[data-citizen-profile]');if(profile){showCitizenProfile(profile.dataset.citizenProfile);return;}
+ if(e.target.closest('#backCitizenSearch')){$('searchForm').requestSubmit();return;}
+ const remove=e.target.closest('[data-remove-type]');if(remove){const t=remove.dataset.removeType;if(!confirm('Founder action: remove this '+t+' from the active citizen record?'))return;send('request',{action:t==='arrest'?'founderRemoveArrest':t==='charge'?'founderRemoveCharge':'founderRemoveCitation',id:remove.dataset.id});return;}
+ const refresh=e.target.closest('[data-refresh-citizen]');if(refresh){showCitizenProfile(refresh.dataset.refreshCitizen);return;}
+ const issue=e.target.closest('[data-issue-license]');if(issue){openForm('ISSUE CITIZEN LICENSE',[{name:'citizenid',label:'CITIZEN ID',value:issue.dataset.issueLicense,required:true},{name:'licenseType',label:'LICENSE TYPE',type:'select',options:['Vehicle License','CDL License','Firearms License I (Pistols and Shotguns)','Firearms License II (Rifles)','Firearms License III (Manufacturing)','FAA Pilots License','Boating License']},{name:'issuedAt',label:'ISSUE DATE',required:true},{name:'expiresAt',label:'EXPIRATION DATE'},{name:'notes',label:'NOTES',type:'textarea',full:true}],'createCitizenLicense');return;}
+ const weapon=e.target.closest('[data-register-weapon]');if(weapon){openForm('REGISTER WEAPON',[{name:'citizenid',label:'CITIZEN ID',value:weapon.dataset.registerWeapon,required:true},{name:'weaponName',label:'WEAPON NAME / MODEL',required:true},{name:'serial',label:'SERIAL NUMBER',required:true},{name:'notes',label:'NOTES',type:'textarea',full:true}],'createRegisteredWeapon');}
+});
 $('callsList').addEventListener('click',e=>{const assign=e.target.closest('[data-assign]'),update=e.target.closest('[data-update]');if(assign)send('assignCall',{callId:assign.dataset.assign});if(update){const id=update.dataset.update;const select=document.querySelector('[data-status="'+CSS.escape(id)+'"]');send('updateCall',{callId:id,status:select?.value||'Pending'});}});
+
+function dossierRows(items,kind){
+ if(!Array.isArray(items)||!items.length)return '<div class="empty">No records found.</div>';
+ return items.map((x)=>'<article class="dossier-row"><b>'+esc(x.label||x.name||x.title||x.model||x.weaponName||kind)+'</b><span>'+esc(x.details||x.description||x.address||x.plate||x.serial||x.status||'')+'</span></article>').join('');
+}
+function showCitizenProfile(id){$('searchResults').innerHTML=empty('Loading citizen dossier...');send('request',{action:'getCitizenProfile',citizenid:id});}
+function renderCitizenProfile(r){
+ const c=r.citizen||{},p=c.profile||{},id=c.citizenid||'',founder=state.access==='founder'||state.isFounder===true;
+ const facts=[['DATE OF BIRTH',p.birthdate],['GENDER',p.gender],['NATIONALITY',p.nationality],['PHONE',p.phone],['JOB',c.job?.label||c.job?.name],['GANG',c.gang?.label||c.gang?.name],['FIRST JOINED',c.firstJoined?new Date(c.firstJoined).toLocaleDateString():''],['PLAYTIME',Math.floor((Number(c.playtimeSeconds)||0)/3600)+' hours']];
+ const factHtml=facts.map(x=>'<div class="dossier-fact"><small>'+esc(x[0])+'</small><b>'+esc(x[1]||'Not recorded')+'</b></div>').join('');
+ const arrestHtml=(r.arrests||[]).map(a=>'<article class="dossier-row"><b>ARREST · '+new Date(Number(a.created_at)||Date.now()).toLocaleString()+'</b><p>'+esc(a.narrative||'No narrative')+'</p><p>Officer: '+esc(a.officer_name||'Unknown')+' · Fine: let best=Infinity,hit=null;for(const p of postalData){const d=(p.x-x)**2+(p.y-y)**2;if(d<best){best=d;hit=p;}}return hit;}
+function startMapPlacement(){if(state.access!=='dispatch'){message('Only Dispatch can place calls on the map.');return;}switchPanel('map');placingCall=true;$('mapHint').textContent='Click the incident location on the map.';message('Map placement active · click the incident location.');}
+function initDispatchMap(){
+ if(dispatchMap||!window.L)return;
+ const cfg={image:[6144,9216],topLeft:[-4140,8400],bottomRight:[4860,-5100],tileSize:256,maxZoom:6,defaultZoom:3,defaultCenter:[1650,450]};
+ const crs=Object.create(L.CRS.Simple);
+ const u=cfg.image[0]/((cfg.bottomRight[0]-cfg.topLeft[0])*Math.pow(2,cfg.maxZoom));
+ const d=cfg.image[1]/((cfg.bottomRight[1]-cfg.topLeft[1])*Math.pow(2,cfg.maxZoom));
+ crs.transformation=new L.Transformation(u,-u*cfg.topLeft[0],d,-d*cfg.topLeft[1]);
+ crs.wrapLng=[cfg.topLeft[0],cfg.bottomRight[0]];
+ crs.wrapLat=[cfg.bottomRight[1],cfg.topLeft[1]];
+ crs.infinite=false;crs.scale=z=>Math.pow(2,z);crs.zoom=s=>Math.log(s)/Math.LN2;crs.distance=(a,b)=>{const dx=b.lng-a.lng,dy=b.lat-a.lat;return Math.sqrt(dx*dx+dy*dy);};
+ const mapBounds=[[cfg.bottomRight[1],cfg.topLeft[0]],[cfg.topLeft[1],cfg.bottomRight[0]]];
+ dispatchMap=L.map('clrpDispatchMap',{crs,center:cfg.defaultCenter,zoom:cfg.defaultZoom,minZoom:0,maxZoom:cfg.maxZoom,maxBounds:mapBounds,maxBoundsViscosity:1.0,zoomControl:true,attributionControl:true,preferCanvas:true});
+ L.tileLayer('https://postal-code-map-tile.pages.dev/tiles/{z}/{x}/{y}.png',{tileSize:cfg.tileSize,minZoom:0,maxZoom:cfg.maxZoom,maxNativeZoom:cfg.maxZoom,noWrap:true,bounds:mapBounds,attribution:'Four-digit postal map · Virus_City / Acc-Off'}).addTo(dispatchMap);
+ drawCallMarkers();
+ postalData = BUILT_IN_POSTALS; $('mapHint').textContent = `Postal map ready · ${postalData.length} postal locations loaded.`;
+ dispatchMap.on('click',e=>{if(!placingCall)return;placingCall=false;const x=e.latlng.lng,y=e.latlng.lat,postal=nearestPostal(x,y);$('mapHint').textContent='Selected postal: '+(postal?postal.code:'not found')+'. Complete call details.';openForm('CREATE DISPATCH CALL',[{name:'call_type',label:'CALL TYPE',required:true},{name:'location',label:'LOCATION / ADDRESS',required:true},{name:'priority',label:'PRIORITY',type:'select',options:['1 - Emergency','2 - Urgent','3 - Routine','4 - Information']},{name:'description',label:'CALL DETAILS',type:'textarea',full:true},{name:'postal',type:'hidden',value:postal?postal.code:''},{name:'mapX',type:'hidden',value:x.toFixed(2)},{name:'mapY',type:'hidden',value:y.toFixed(2)}],'createCall');});
+ $('mapPlaceCall').addEventListener('click',startMapPlacement);$('mapReset').addEventListener('click',()=>dispatchMap.setView([1650,450],3));
+}
+function drawCallMarkers(){if(!dispatchMap||!window.L)return;const active=new Set();(state.calls||[]).forEach(c=>{if(c.mapX==null||c.mapY==null)return;const x=Number(c.mapX),y=Number(c.mapY);if(!Number.isFinite(x)||!Number.isFinite(y)||x< -4140||x>4860||y< -5100||y>8400)return;active.add(c.id);let marker=callMarkers.get(c.id);const color=String(c.priority||'').startsWith('1')?'#ef4444':String(c.priority||'').startsWith('2')?'#f97316':'#eab308';const icon=L.divIcon({className:'call-marker-wrap',html:'<span class="call-marker" style="--marker-color:'+color+'"></span>',iconSize:[24,24],iconAnchor:[12,12]});if(!marker){marker=L.marker([y,x],{icon,draggable:state.access==='dispatch'}).addTo(dispatchMap);callMarkers.set(c.id,marker);marker.on('dragend',()=>{const p=marker.getLatLng();send('request',{action:'moveCallBlip',callId:c.id,mapX:p.lng,mapY:p.lat});});}else{marker.setLatLng([y,x]);marker.setIcon(icon);if(marker.dragging)state.access==='dispatch'?marker.dragging.enable():marker.dragging.disable();}const postalMatch=String(c.location||'').match(/Postal (\d{4})/);marker.bindPopup('<b>'+esc(c.call_number)+' · '+esc(c.call_type)+'</b><br>'+esc(c.location)+'<br>Postal '+esc(c.postal||(postalMatch?postalMatch[1]:'—'))+' · '+esc(c.status));});for(const [id,m] of callMarkers)if(!active.has(id)){dispatchMap.removeLayer(m);callMarkers.delete(id);}}
+window.addEventListener('message',e=>{
+ const d=e.data||{};
+ if(d.action==='open'){document.body.style.setProperty('visibility','visible','important');$('app').hidden=false;}
+ if(d.action==='close'){$('app').hidden=true;$('modal').hidden=true;document.body.style.setProperty('visibility','hidden','important');}
+ if(d.action==='bootstrap'){state={...state,...(d.data||{})};$('unitName').textContent=state.officer?.callsign||state.officer?.name||'AUTHORIZED UNIT';if(state.status)$('unitStatus').value=state.status;render();message('Secure connection established.');}
+ if(d.action==='result'){
+  if(d.data?.error){message(d.data.error);return;}
+  if(d.data?.calls||d.data?.units||d.data?.bolos){state={...state,...d.data};render();}
+  if(d.data?.records){const people=d.data.records.filter(r=>r.type==='person');$('searchResults').innerHTML=people.length?people.map(r=>'<article class="result-card"><h3>'+esc(r.name||'Citizen')+'</h3><p>CITIZEN ID · '+esc(r.citizenid||'')+'</p><button class="primary" data-citizen-profile="'+esc(r.citizenid||'')+'">VIEW CITIZEN PROFILE ↗</button></article>').join(''):empty('No matching citizens found.');}
+  if(d.data?.citizen){renderCitizenProfile(d.data);}
+  if(d.data?.message&&d.data?.refresh){message(d.data.message);const id=document.querySelector('[data-refresh-citizen]')?.dataset.refreshCitizen;if(id)showCitizenProfile(id);}
+  if(d.data?.message)message(d.data.message);else message('CAD updated.');
+ }
+});
+})();+Number(a.total_roleplay_fine||0).toLocaleString()+' · Jail: '+Number(a.total_roleplay_jail_minutes||0)+' min</p>'+(a.charges||[]).map(ch=>'<div class="dossier-subrow">'+esc(ch.charge_code+' · '+ch.charge_title)+' — let best=Infinity,hit=null;for(const p of postalData){const d=(p.x-x)**2+(p.y-y)**2;if(d<best){best=d;hit=p;}}return hit;}
+function startMapPlacement(){if(state.access!=='dispatch'){message('Only Dispatch can place calls on the map.');return;}switchPanel('map');placingCall=true;$('mapHint').textContent='Click the incident location on the map.';message('Map placement active · click the incident location.');}
+function initDispatchMap(){
+ if(dispatchMap||!window.L)return;
+ const cfg={image:[6144,9216],topLeft:[-4140,8400],bottomRight:[4860,-5100],tileSize:256,maxZoom:6,defaultZoom:3,defaultCenter:[1650,450]};
+ const crs=Object.create(L.CRS.Simple);
+ const u=cfg.image[0]/((cfg.bottomRight[0]-cfg.topLeft[0])*Math.pow(2,cfg.maxZoom));
+ const d=cfg.image[1]/((cfg.bottomRight[1]-cfg.topLeft[1])*Math.pow(2,cfg.maxZoom));
+ crs.transformation=new L.Transformation(u,-u*cfg.topLeft[0],d,-d*cfg.topLeft[1]);
+ crs.wrapLng=[cfg.topLeft[0],cfg.bottomRight[0]];
+ crs.wrapLat=[cfg.bottomRight[1],cfg.topLeft[1]];
+ crs.infinite=false;crs.scale=z=>Math.pow(2,z);crs.zoom=s=>Math.log(s)/Math.LN2;crs.distance=(a,b)=>{const dx=b.lng-a.lng,dy=b.lat-a.lat;return Math.sqrt(dx*dx+dy*dy);};
+ const mapBounds=[[cfg.bottomRight[1],cfg.topLeft[0]],[cfg.topLeft[1],cfg.bottomRight[0]]];
+ dispatchMap=L.map('clrpDispatchMap',{crs,center:cfg.defaultCenter,zoom:cfg.defaultZoom,minZoom:0,maxZoom:cfg.maxZoom,maxBounds:mapBounds,maxBoundsViscosity:1.0,zoomControl:true,attributionControl:true,preferCanvas:true});
+ L.tileLayer('https://postal-code-map-tile.pages.dev/tiles/{z}/{x}/{y}.png',{tileSize:cfg.tileSize,minZoom:0,maxZoom:cfg.maxZoom,maxNativeZoom:cfg.maxZoom,noWrap:true,bounds:mapBounds,attribution:'Four-digit postal map · Virus_City / Acc-Off'}).addTo(dispatchMap);
+ drawCallMarkers();
+ postalData = BUILT_IN_POSTALS; $('mapHint').textContent = `Postal map ready · ${postalData.length} postal locations loaded.`;
+ dispatchMap.on('click',e=>{if(!placingCall)return;placingCall=false;const x=e.latlng.lng,y=e.latlng.lat,postal=nearestPostal(x,y);$('mapHint').textContent='Selected postal: '+(postal?postal.code:'not found')+'. Complete call details.';openForm('CREATE DISPATCH CALL',[{name:'call_type',label:'CALL TYPE',required:true},{name:'location',label:'LOCATION / ADDRESS',required:true},{name:'priority',label:'PRIORITY',type:'select',options:['1 - Emergency','2 - Urgent','3 - Routine','4 - Information']},{name:'description',label:'CALL DETAILS',type:'textarea',full:true},{name:'postal',type:'hidden',value:postal?postal.code:''},{name:'mapX',type:'hidden',value:x.toFixed(2)},{name:'mapY',type:'hidden',value:y.toFixed(2)}],'createCall');});
+ $('mapPlaceCall').addEventListener('click',startMapPlacement);$('mapReset').addEventListener('click',()=>dispatchMap.setView([1650,450],3));
+}
+function drawCallMarkers(){if(!dispatchMap||!window.L)return;const active=new Set();(state.calls||[]).forEach(c=>{if(c.mapX==null||c.mapY==null)return;const x=Number(c.mapX),y=Number(c.mapY);if(!Number.isFinite(x)||!Number.isFinite(y)||x< -4140||x>4860||y< -5100||y>8400)return;active.add(c.id);let marker=callMarkers.get(c.id);const color=String(c.priority||'').startsWith('1')?'#ef4444':String(c.priority||'').startsWith('2')?'#f97316':'#eab308';const icon=L.divIcon({className:'call-marker-wrap',html:'<span class="call-marker" style="--marker-color:'+color+'"></span>',iconSize:[24,24],iconAnchor:[12,12]});if(!marker){marker=L.marker([y,x],{icon,draggable:state.access==='dispatch'}).addTo(dispatchMap);callMarkers.set(c.id,marker);marker.on('dragend',()=>{const p=marker.getLatLng();send('request',{action:'moveCallBlip',callId:c.id,mapX:p.lng,mapY:p.lat});});}else{marker.setLatLng([y,x]);marker.setIcon(icon);if(marker.dragging)state.access==='dispatch'?marker.dragging.enable():marker.dragging.disable();}const postalMatch=String(c.location||'').match(/Postal (\d{4})/);marker.bindPopup('<b>'+esc(c.call_number)+' · '+esc(c.call_type)+'</b><br>'+esc(c.location)+'<br>Postal '+esc(c.postal||(postalMatch?postalMatch[1]:'—'))+' · '+esc(c.status));});for(const [id,m] of callMarkers)if(!active.has(id)){dispatchMap.removeLayer(m);callMarkers.delete(id);}}
+window.addEventListener('message',e=>{
+ const d=e.data||{};
+ if(d.action==='open'){document.body.style.setProperty('visibility','visible','important');$('app').hidden=false;}
+ if(d.action==='close'){$('app').hidden=true;$('modal').hidden=true;document.body.style.setProperty('visibility','hidden','important');}
+ if(d.action==='bootstrap'){state={...state,...(d.data||{})};$('unitName').textContent=state.officer?.callsign||state.officer?.name||'AUTHORIZED UNIT';if(state.status)$('unitStatus').value=state.status;render();message('Secure connection established.');}
+ if(d.action==='result'){
+  if(d.data?.error){message(d.data.error);return;}
+  if(d.data?.calls||d.data?.units||d.data?.bolos){state={...state,...d.data};render();}
+  if(d.data?.records){$('searchResults').innerHTML=d.data.records.length?d.data.records.map(r=>`<article class="result-card"><h3>${esc(r.name||r.title||r.plate||'Record')}</h3><p>${esc(r.details||r.description||r.citizenid||r.plate||'')}</p></article>`).join(''):empty('No matching records found.');}
+  if(d.data?.message)message(d.data.message);else message('CAD updated.');
+ }
+});
+})();+Number(ch.roleplay_fine||0).toLocaleString()+' / '+Number(ch.roleplay_jail_minutes||0)+' min'+(founder?' <button class="danger tiny" data-remove-type="charge" data-id="'+esc(ch.id)+'">REMOVE CHARGE</button>':'')+'</div>').join('')+(founder?'<button class="danger tiny" data-remove-type="arrest" data-id="'+esc(a.id)+'">REMOVE ARREST</button>':'')+'</article>').join('')||'<div class="empty">No arrest history found.</div>';
+ const licenseHtml=(r.registeredLicenses||[]).map(x=>'<article class="dossier-row"><b>'+esc(x.licenseType)+'</b><span>'+esc(x.status)+' · '+esc(x.licenseNumber||'No number')+'</span><small>Issued: '+esc(x.issuedAt||'—')+' · Expires: '+esc(x.expiresAt||'No expiration')+'</small></article>').join('')||'<div class="empty">No County Line licenses issued.</div>';
+ const reportHtml=(r.reports||[]).map(x=>'<article class="dossier-row"><b>'+esc(x.record_type+' · '+x.title)+'</b><p>'+esc(x.details)+'</p><small>'+esc(x.officer_name||'')+'</small>'+(founder&&x.record_type==='Citation'?' <button class="danger tiny" data-remove-type="citation" data-id="'+esc(x.id)+'">REMOVE CITATION</button>':'')+'</article>').join('')||'<div class="empty">No reports or citations found.</div>';
+ const section=(title,html)=>'<section class="dossier-section"><h3>'+title+'</h3>'+html+'</section>';
+ $('searchResults').innerHTML='<button class="secondary" id="backCitizenSearch">← BACK TO SEARCH</button><header class="dossier-header"><small>COUNTY LINE ROLEPLAY · CITIZEN DOSSIER</small><h2>'+esc(c.name||'Unknown Citizen')+'</h2><p>CITIZEN ID · '+esc(id)+' · '+(c.online?'ONLINE':'OFFLINE')+'</p></header><div class="dossier-facts">'+factHtml+'</div>'+
+ section('LICENSES',licenseHtml)+section('VEHICLES',dossierRows(r.vehicles,'Vehicle'))+section('PROPERTIES',dossierRows(r.properties,'Property'))+section('ARRESTS & CRIMINAL CHARGES',arrestHtml)+section('REPORTS & CITATIONS',reportHtml)+section('WARRANTS',dossierRows(r.warrants,'Warrant')+(r.dataAvailability?.warrants===false?'<small class="muted">Structured warrant records are not yet available in the shared CAD database.</small>':''))+section('REGISTERED WEAPONS',dossierRows(r.registeredWeapons,'Weapon'))+
+ '<div class="dossier-actions"><button class="secondary" data-refresh-citizen="'+esc(id)+'">REFRESH DOSSIER</button><button class="secondary" data-issue-license="'+esc(id)+'">＋ ISSUE LICENSE</button><button class="secondary" data-register-weapon="'+esc(id)+'">＋ REGISTER WEAPON</button></div>';
+}
+
 function nearestPostal(x,y){let best=Infinity,hit=null;for(const p of postalData){const d=(p.x-x)**2+(p.y-y)**2;if(d<best){best=d;hit=p;}}return hit;}
 function startMapPlacement(){if(state.access!=='dispatch'){message('Only Dispatch can place calls on the map.');return;}switchPanel('map');placingCall=true;$('mapHint').textContent='Click the incident location on the map.';message('Map placement active · click the incident location.');}
 function initDispatchMap(){
