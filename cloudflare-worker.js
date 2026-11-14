@@ -196,7 +196,8 @@ const handleCadAction = async (env, action, body, officer, access) => {
     const citizenid=String(body.citizenid||"").trim();
     const licenseType=String(body.licenseType||"").trim();
     const allowedTypes=["Vehicle License","CDL License","Firearms License I (Pistols and Shotguns)","Firearms License II (Rifles)","Firearms License III (Manufacturing)","FAA Pilots License","Boating License"];
-    const licenseNumber=String(body.licenseNumber||"").trim().slice(0,100);
+    const licenseCodes={"Vehicle License":"VEH","CDL License":"CDL","Firearms License I (Pistols and Shotguns)":"F1","Firearms License II (Rifles)":"F2","Firearms License III (Manufacturing)":"F3","FAA Pilots License":"FAA","Boating License":"BOAT"};
+    const licenseNumber="CL-"+licenseCodes[licenseType]+"-"+new Date().getUTCFullYear()+"-"+crypto.randomUUID().replace(/-/g,"").slice(0,8).toUpperCase();
     const notes=String(body.notes||"").trim().slice(0,1000);
     const issuedAt=String(body.issuedAt||"").trim().slice(0,10);
     const expiresAt=String(body.expiresAt||"").trim().slice(0,10);
