@@ -25,7 +25,7 @@ async function loadPostalOverlay(){
   try{
     const response=await fetch('assets/data/postals.json',{cache:'force-cache'});
     if(!response.ok)throw new Error('Postal data unavailable');
-    postalData=(await response.json()).filter(p=>/^\\d{4}$/.test(String(p.code)));
+    postalData=(await response.json()).filter(p=>/^\d{4}$/.test(String(p.code)));
     if(!dispatchMap||!postalData.length)return;
     const PostalLayer=L.GridLayer.extend({
       createTile(coords){
