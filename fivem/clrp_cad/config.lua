@@ -4,7 +4,7 @@ Config = {}
 Config.ApiUrl = 'https://clrp-player-portal-api.blakealley2.workers.dev'
 
 -- Keep the secret in server.cfg. Never put it in a client file.
-Config.ServerSecretConvar = 'clrp_server_secret'
+Config.ServerSecretConvar = 'CLRP_SERVER_SECRET'
 
 Config.Command = 'mdt'
 Config.Keybind = 'F6'
