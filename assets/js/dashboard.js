@@ -315,11 +315,12 @@
  request("/api/me").then(async data=>{
   if(!data.authenticated||!data.user){login();return;}
   currentAccess=data.access||{permissions:[],roleNames:[],isStaff:false};
-  if(can("applications.review")||can("staff.manage")||can("careers.manage")){
+  if(can("applications.review")||can("staff.manage")||can("careers.manage")||can("mdt.leo")||can("dispatch.access")){
    $("staffNav").hidden=false;
    $("staffRoleSummary").textContent=(currentAccess.roleNames||[]).join(" · ")||"Staff access";
    $("staffRolesTab").hidden=!can("staff.manage");
    $("staffCareersTab").hidden=!can("careers.manage");
+   $("staffCadTab").hidden=!(can("mdt.leo")||can("dispatch.access"));
    if(!can("applications.review")){document.querySelector('[data-staff-tab="applications"]').hidden=true;$("staffApplicationsPanel").hidden=true;setStaffTab(can("staff.manage")?"roles":"careers");}
   } else {$("staffNav").hidden=true;}
   const u=data.user,name=u.global_name||u.username||"Discord member",tag="@"+(u.username||"member");
