@@ -5,7 +5,7 @@ const req=async(method='GET',body={})=>{const r=await fetch(api+'/api/cad',{meth
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const note=t=>$('cadNotice').textContent=t;
 const empty=t=>'<div class="cad-empty">'+esc(t)+'</div>';
-const switchView=v=>{document.querySelectorAll('.cad-view').forEach(x=>x.classList.toggle('active',x.id==='cad-'+v));document.querySelectorAll('.cad-nav').forEach(x=>x.classList.toggle('active',x.dataset.view===v));$('cadTitle').textContent=({calls:'ACTIVE CALLS',units:'UNIT ROSTER',records:'CITIZEN SEARCH',bolos:'BOLO BOARD',map:'DISPATCH MAP'})[v];if(v==='map'){initDispatchMap();requestAnimationFrame(()=>dispatchMap&&dispatchMap.invalidateSize());}};
+const switchView=v=>{document.querySelectorAll('.cad-view').forEach(x=>x.classList.toggle('active',x.id==='cad-'+v));document.querySelectorAll('.cad-nav').forEach(x=>x.classList.toggle('active',x.dataset.view===v));$('cadTitle').textContent=({calls:'ACTIVE CALLS',units:'UNIT ROSTER',records:'RECORDS TERMINAL',bolos:'BOLO BOARD',map:'DISPATCH MAP'})[v];if(v==='map'){initDispatchMap();requestAnimationFrame(()=>dispatchMap&&dispatchMap.invalidateSize());}};
 document.querySelectorAll('.cad-nav').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
 async function refresh(){try{data=await req();render();note('Secure CAD session active · '+(data.officer?.name||'Authorized user'));}catch(e){note(e.message);}}
 function render(){const calls=data.calls||[],units=data.units||[],bolos=data.bolos||[];$('navCallCount').textContent=calls.length;$('metricCalls').textContent=calls.length;$('metricUnits').textContent=units.length;$('metricAvailable').textContent=units.filter(x=>x.status==='Available').length;$('metricBolos').textContent=bolos.length;
@@ -89,18 +89,16 @@ async function runRecordSearch(){
   }catch(x){$('webResults').innerHTML=empty(x.message);}
 }
 $('webSearch').addEventListener('submit',async e=>{e.preventDefault();await runRecordSearch();});
-function profileSection(title,content){return '<section class="citizen-profile-section"><h3>'+esc(title)+'</h3>'+content+'</section>';}
-function profileRows(items,render,emptyText){return Array.isArray(items)&&items.length?items.map(render).join(''):empty(emptyText);}
 async function openCitizenProfile(citizenid){
   $('webResults').innerHTML=empty('Loading citizen profile...');
   try{
-    const p=await req('POST',{action:'getCitizenProfile',citizenid});
-    const c=p.citizen||{},identity=c.profile||{};
-    const availability=p.dataAvailability||{};
-    const licenseHtml=availability.licenses?'<pre>'+esc(JSON.stringify(p.licenses,null,2))+'</pre>':empty('License information is not currently included in the server sync.');
-    const vehicleHtml=profileRows(p.vehicles,v=>'<article class="citizen-data-row"><b>'+esc(v.label||v.model||'Vehicle')+'</b><span>Plate: '+esc(v.plate||'—')+'</span><small>Garage: '+esc(v.garage||'—')+' · Status: '+esc(v.state??'—')+'</small></article>','No vehicles are recorded for this citizen.');
-    const propertyHtml=profileRows(p.properties,v=>'<article class="citizen-data-row"><b>'+esc(v.label||v.id||'Property')+'</b><small>Property ID: '+esc(v.id||'—')+'</small></article>','No properties are recorded for this citizen.');
-    const arrestHtml=profileRows(p.arrests,a=>'<article class="citizen-data-row"><b>CAD ARREST · '+new Date(Number(a.created_at)).toLocaleString()+'</b><span>Officer: '+esc(a.officer_name)+' · RP fine: 
+    const p=await req('POST',{action:'getCitizenProfile',citizenid}),c=p.citizen||{},profile=c.profile||{},availability=p.dataAvailability||{};
+    const section=(title,body)=>'<section class="citizen-profile-section"><h3>'+esc(title)+'</h3>'+body+'</section>';
+    const rows=(items,render,msg)=>Array.isArray(items)&&items.length?items.map(render).join(''):empty(msg);
+    const license=availability.licenses?'<pre>'+esc(JSON.stringify(p.licenses,null,2))+'</pre>':empty('License information is not currently synced.');
+    const vehicles=rows(p.vehicles,v=>'<article class="citizen-data-row"><b>'+esc(v.label||v.model||'Vehicle')+'</b><span>Plate: '+esc(v.plate||'—')+'</span><small>Garage: '+esc(v.garage||'—')+'</small></article>','No vehicles on file.');
+    const houses=rows(p.properties,v=>'<article class="citizen-data-row"><b>'+esc(v.label||v.id||'Property')+'</b></article>','No properties on file.');
+    const arrests=rows(p.arrests,a=>'<article class="citizen-data-row"><b>CAD ARREST · '+esc(new Date(Number(a.created_at)).toLocaleString())+'</b><span>'+esc(a.officer_name)+' · RP fine 
   try{
     const r=await req('POST',{action:'getCharges'});
     $('webResults').innerHTML='<div class="cad-catalog-head"><h3>COUNTY LINE CHARGE CATALOG</h3><p>County Line catalog penalty references are separate from the configurable roleplay fine and jail defaults.</p></div>'+(r.charges||[]).map(c=>'<article class="cad-result"><div class="cad-result-head"><div><h3>'+esc(c.code)+' · '+esc(c.title)+'</h3><p>'+esc(c.category)+' · '+esc(c.offense_class)+' · '+esc(c.statute)+'</p></div><div class="cad-rp-values">RP &#36;'+Number(c.roleplay_fine).toLocaleString()+'<br>'+esc(c.roleplay_jail_minutes)+' min</div></div><p>'+esc(c.description)+'</p><small class="cad-legal-penalty">County Line penalty reference: '+esc(c.statutory_penalty)+'</small></article>').join('');
@@ -132,9 +130,10 @@ $('webResults').addEventListener('click',async e=>{
   }catch(err){note(err.message);}
 });
 $('webCalls').addEventListener('click',e=>{const a=e.target.closest('[data-assign]'),u=e.target.closest('[data-update]');if(a)post('assignCall',{callId:a.dataset.assign});if(u){const id=u.dataset.update;post('updateCall',{callId:id,status:document.querySelector('[data-status="'+CSS.escape(id)+'"]').value});}});
-(async()=>{try{const me=await fetch(api+'/api/me',{credentials:'include'});const m=await me.json();const p=m.access?.permissions||[];if(!m.authenticated||(!p.includes('*')&&!p.includes('mdt.leo')&&!p.includes('dispatch.access'))){note('Access denied. Law Enforcement or Dispatch permissions are required.');return;}if(!api){note('Portal API is not configured.');return;}if(!p.includes('*')&&!p.includes('mdt.leo')){document.querySelectorAll('#webNewReport,#webNewBolo,#webChargeCatalog').forEach(x=>x.hidden=true);document.querySelector('[data-view="records"]').hidden=true;}await refresh();setInterval(refresh,15000);}catch(e){note('Unable to verify CAD access. Please sign in through the Player Portal.');}})();
-})();+Number(a.total_roleplay_fine||0).toLocaleString()+' · RP jail: '+esc(a.total_roleplay_jail_minutes)+' min</span><p>'+esc(a.narrative)+'</p><ul>'+(a.charges||[]).map(ch=>'<li>'+esc(ch.charge_code)+' · '+esc(ch.charge_title)+' ('+esc(ch.offense_class)+')</li>').join('')+'</ul></article>','No custom CAD arrests are on file.')+profileRows(p.legacyArrests,a=>'<article class="citizen-data-row"><b>PRIOR ARREST · '+esc(a.title||'Arrest record')+'</b><small>'+esc(a.officer_name||'Officer not listed')+' · '+esc(a.datecreated||a.created_at||'')+'</small></article>','');
-    const chargeHtml=profileRows(p.legacyCharges,ch=>'<article class="citizen-data-row"><b>'+esc(ch.charge||ch.charge_title||'Charge')+'</b><span>Fine: 
+(async()=>{try{if(!api){note('Portal API is not configured.');return;}const me=await fetch(api+'/api/me',{credentials:'include'});const m=await me.json();const p=m.access?.permissions||[];if(!m.authenticated||(!p.includes('*')&&!p.includes('mdt.leo')&&!p.includes('dispatch.access'))){note('Access denied. Law Enforcement or Dispatch permissions are required.');return;}if(!p.includes('*')&&!p.includes('mdt.leo')){document.querySelectorAll('#webNewReport,#webNewBolo,#webChargeCatalog').forEach(x=>x.hidden=true);document.querySelector('[data-view="records"]').hidden=true;}await refresh();setInterval(refresh,15000);}catch(e){note('Unable to verify CAD access. Please sign in through the Player Portal.');}})();
+})();+Number(a.total_roleplay_fine||0).toLocaleString()+' · RP jail '+esc(a.total_roleplay_jail_minutes)+' min</span><p>'+esc(a.narrative)+'</p><ul>'+(a.charges||[]).map(ch=>'<li>'+esc(ch.charge_code)+' · '+esc(ch.charge_title)+'</li>').join('')+'</ul></article>','No custom CAD arrests on file.');
+    const legacy=rows(p.legacyArrests,a=>'<article class="citizen-data-row"><b>'+esc(a.title||'Prior arrest')+'</b><small>'+esc(a.datecreated||'')+'</small></article>','');
+    const charges=rows(p.legacyCharges,a=>'<article class="citizen-data-row"><b>'+esc(a.charge||'Charge')+'</b><span>Fine: 
   try{
     const r=await req('POST',{action:'getCharges'});
     $('webResults').innerHTML='<div class="cad-catalog-head"><h3>COUNTY LINE CHARGE CATALOG</h3><p>County Line catalog penalty references are separate from the configurable roleplay fine and jail defaults.</p></div>'+(r.charges||[]).map(c=>'<article class="cad-result"><div class="cad-result-head"><div><h3>'+esc(c.code)+' · '+esc(c.title)+'</h3><p>'+esc(c.category)+' · '+esc(c.offense_class)+' · '+esc(c.statute)+'</p></div><div class="cad-rp-values">RP &#36;'+Number(c.roleplay_fine).toLocaleString()+'<br>'+esc(c.roleplay_jail_minutes)+' min</div></div><p>'+esc(c.description)+'</p><small class="cad-legal-penalty">County Line penalty reference: '+esc(c.statutory_penalty)+'</small></article>').join('');
@@ -142,8 +141,6 @@ $('webCalls').addEventListener('click',e=>{const a=e.target.closest('[data-assig
 }
 $('webChargeCatalog')?.addEventListener('click',openChargeCatalog);
 $('webResults').addEventListener('click',async e=>{
-  const profileButton=e.target.closest('[data-profile]');
-  if(profileButton){await openCitizenProfile(profileButton.dataset.profile);return;}
   const b=e.target.closest('[data-arrest]');if(!b)return;
   try{
     const r=await req('POST',{action:'getCharges'}),charges=r.charges||[];
@@ -167,10 +164,10 @@ $('webResults').addEventListener('click',async e=>{
 });
 $('webCalls').addEventListener('click',e=>{const a=e.target.closest('[data-assign]'),u=e.target.closest('[data-update]');if(a)post('assignCall',{callId:a.dataset.assign});if(u){const id=u.dataset.update;post('updateCall',{callId:id,status:document.querySelector('[data-status="'+CSS.escape(id)+'"]').value});}});
 (async()=>{try{const me=await fetch(api+'/api/me',{credentials:'include'});const m=await me.json();const p=m.access?.permissions||[];if(!m.authenticated||(!p.includes('*')&&!p.includes('mdt.leo')&&!p.includes('dispatch.access'))){note('Access denied. Law Enforcement or Dispatch permissions are required.');return;}if(!api){note('Portal API is not configured.');return;}if(!p.includes('*')&&!p.includes('mdt.leo')){document.querySelectorAll('#webNewReport,#webNewBolo,#webChargeCatalog').forEach(x=>x.hidden=true);document.querySelector('[data-view="records"]').hidden=true;}await refresh();setInterval(refresh,15000);}catch(e){note('Unable to verify CAD access. Please sign in through the Player Portal.');}})();
-})();+Number(ch.fine||ch.roleplay_fine||0).toLocaleString()+' · Jail: '+esc(ch.time||ch.roleplay_jail_minutes||0)+' min</span><small>'+esc(ch.datecreated||ch.statute||'')+'</small></article>','No additional charge records are synced.');
-    const warrantHtml=availability.warrants?profileRows(p.warrants,w=>'<article class="citizen-data-row"><b>'+esc(w.title||w.type||'Active warrant')+'</b><small>'+esc(w.status||'Active')+' · '+esc(w.created_at||'')+'</small></article>','No active warrants are recorded.') : empty('Active warrants are not currently synced to the citizen profile.');
-    const weaponHtml=availability.registeredWeapons?profileRows(p.registeredWeapons,w=>'<article class="citizen-data-row"><b>'+esc(w.label||w.weapon||w.serial||'Registered weapon')+'</b><small>Serial: '+esc(w.serial||'—')+' · Registration: '+esc(w.status||'On file')+'</small></article>','No registered weapons are recorded.') : empty('Registered weapons are not currently synced to the citizen profile.');
-    $('webResults').innerHTML='<div class="citizen-profile"><div class="citizen-profile-top"><div><small>COUNTY LINE ROLEPLAY · CITIZEN DOSSIER</small><h2>'+esc(c.name||'Unknown Citizen')+'</h2><p>CITIZEN ID: '+esc(c.citizenid)+'</p></div><div class="citizen-profile-status">'+(c.online?'ONLINE':'OFFLINE')+'</div></div><div class="citizen-profile-facts"><span><b>DATE OF BIRTH</b>'+esc(identity.birthdate||'Not available')+'</span><span><b>GENDER</b>'+esc(identity.gender||'Not available')+'</span><span><b>NATIONALITY</b>'+esc(identity.nationality||'Not available')+'</span><span><b>PHONE</b>'+esc(identity.phone||'Not available')+'</span><span><b>JOB</b>'+esc(c.job?.label||c.job?.name||'Not available')+'</span><span><b>LAST SYNC</b>'+esc(c.updatedAt?new Date(Number(c.updatedAt)).toLocaleString():'Not available')+'</span></div><div class="citizen-profile-grid">'+profileSection('LICENSES',licenseHtml)+profileSection('OWNED VEHICLES',vehicleHtml)+profileSection('OWNED PROPERTIES',propertyHtml)+profileSection('PRIOR ARRESTS',arrestHtml)+profileSection('CHARGE HISTORY',chargeHtml)+profileSection('ACTIVE WARRANTS',warrantHtml)+profileSection('REGISTERED WEAPONS',weaponHtml)+'</div><button class="btn btn-outline" id="citizenBack">← BACK TO CITIZEN SEARCH</button></div>';
+})();+Number(a.fine||0).toLocaleString()+' · Jail: '+esc(a.time||0)+' min</span></article>','No legacy charge history.');
+    const warrants=availability.warrants?rows(p.warrants,w=>'<article class="citizen-data-row">'+esc(w.title||w.type||'Warrant')+'</article>','No active warrants on file.'):empty('Warrant data is not currently synced.');
+    const weapons=availability.registeredWeapons?rows(p.registeredWeapons,w=>'<article class="citizen-data-row">'+esc(w.label||w.weapon||w.serial||'Registered weapon')+'</article>','No registered weapons on file.'):empty('Registered weapon data is not currently synced.');
+    $('webResults').innerHTML='<div class="citizen-profile"><div class="citizen-profile-top"><div><small>COUNTY LINE ROLEPLAY · CITIZEN DOSSIER</small><h2>'+esc(c.name||'Unknown Citizen')+'</h2><p>CITIZEN ID: '+esc(c.citizenid)+'</p></div><b>'+(c.online?'ONLINE':'OFFLINE')+'</b></div><div class="citizen-profile-facts"><span><b>BIRTHDATE</b>'+esc(profile.birthdate||'Not available')+'</span><span><b>GENDER</b>'+esc(profile.gender||'Not available')+'</span><span><b>NATIONALITY</b>'+esc(profile.nationality||'Not available')+'</span><span><b>PHONE</b>'+esc(profile.phone||'Not available')+'</span><span><b>JOB</b>'+esc(c.job?.label||'Not available')+'</span></div><div class="citizen-profile-grid">'+section('LICENSES',license)+section('OWNED VEHICLES',vehicles)+section('OWNED PROPERTIES',houses)+section('PRIOR ARRESTS',arrests+legacy)+section('CHARGE HISTORY',charges)+section('ACTIVE WARRANTS',warrants)+section('REGISTERED WEAPONS',weapons)+'</div><button class="btn btn-outline" id="citizenBack">← BACK TO CITIZEN SEARCH</button></div>';
     $('citizenBack').addEventListener('click',runRecordSearch);
   }catch(e){$('webResults').innerHTML=empty(e.message);}
 }
@@ -182,8 +179,6 @@ async function openChargeCatalog(){
 }
 $('webChargeCatalog')?.addEventListener('click',openChargeCatalog);
 $('webResults').addEventListener('click',async e=>{
-  const profileButton=e.target.closest('[data-profile]');
-  if(profileButton){await openCitizenProfile(profileButton.dataset.profile);return;}
   const b=e.target.closest('[data-arrest]');if(!b)return;
   try{
     const r=await req('POST',{action:'getCharges'}),charges=r.charges||[];
