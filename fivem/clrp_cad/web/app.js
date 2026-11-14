@@ -97,7 +97,12 @@ window.addEventListener('message',e=>{
  if(d.action==='result'){
   if(d.data?.error){message(d.data.error);return;}
   if(d.data?.calls||d.data?.units||d.data?.bolos){state={...state,...d.data};render();}
-  if(d.data?.records){$('searchResults').innerHTML=d.data.records.length?d.data.records.map(r=>`<article class="result-card"><h3>${esc(r.name||r.title||r.plate||'Record')}</h3><p>${esc(r.details||r.description||r.citizenid||r.plate||'')}</p></article>`).join(''):empty('No matching records found.');}
+  if(d.data?.records){
+   const people=d.data.records.filter(r=>r.type==='person'&&r.citizenid);
+   $('searchResults').innerHTML=people.length?people.map(r=>`<article class="result-card"><h3>${esc(r.name||'Citizen')}</h3><p>CITIZEN ID · ${esc(r.citizenid)}</p><button class="primary" type="button" data-citizen-profile="${esc(r.citizenid)}">VIEW CITIZEN PROFILE ↗</button></article>`).join(''):empty('No matching citizens found.');
+  }
+  if(d.data?.citizen){renderCitizenProfile(d.data);}
+  if(d.data?.message&&currentCitizenId){message(d.data.message);showCitizenProfile(currentCitizenId);}
   if(d.data?.message)message(d.data.message);else message('CAD updated.');
  }
 });
