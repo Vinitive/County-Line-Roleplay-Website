@@ -167,10 +167,11 @@ const handleCadAction = async (env, action, body, officer, access) => {
     const citizen=await env.DB.prepare("SELECT citizenid,character_name,payload,is_online,last_seen,updated_at,first_joined,playtime_seconds,sessions_count FROM portal_characters WHERE citizenid=?").bind(citizenid).first();
     if(!citizen)return {error:"Citizen profile not found."};
     let snapshot={};try{snapshot=JSON.parse(citizen.payload||"{}");}catch(_){}
-    const [arrests,charges,reports]=await Promise.all([
+    const [arrests,charges,reports,licenseRows]=await Promise.all([
       env.DB.prepare("SELECT id,narrative,officer_name,total_roleplay_fine,total_roleplay_jail_minutes,created_at FROM cad_arrests WHERE citizenid=? ORDER BY created_at DESC LIMIT 100").bind(citizenid).all(),
       env.DB.prepare("SELECT ac.arrest_id,ac.charge_code,ac.charge_title,ac.offense_class,ac.statute,ac.roleplay_fine,ac.roleplay_jail_minutes,a.created_at FROM cad_arrest_charges ac INNER JOIN cad_arrests a ON a.id=ac.arrest_id WHERE a.citizenid=? ORDER BY a.created_at DESC LIMIT 200").bind(citizenid).all(),
-      env.DB.prepare("SELECT id,record_type,title,details,officer_name,created_at FROM cad_records WHERE subject=? OR subject LIKE ? ORDER BY created_at DESC LIMIT 100").bind(citizenid,"%"+citizenid+"%").all()
+      env.DB.prepare("SELECT id,record_type,title,details,officer_name,created_at FROM cad_records WHERE subject=? OR subject LIKE ? ORDER BY created_at DESC LIMIT 100").bind(citizenid,"%"+citizenid+"%").all(),
+      env.DB.prepare("SELECT id,license_type AS licenseType,license_number AS licenseNumber,status,notes,issued_at AS issuedAt,expires_at AS expiresAt,issued_by_name AS issuedBy,created_at AS createdAt FROM cad_citizen_licenses WHERE citizenid=? ORDER BY created_at DESC").bind(citizenid).all()
     ]);
     const records=snapshot.records||{},profile=snapshot.profile||{};
     const licenses=profile.licenses||snapshot.licenses||snapshot.metadata?.licences||snapshot.metadata?.licenses||null;
@@ -180,15 +181,45 @@ const handleCadAction = async (env, action, body, officer, access) => {
     const chargeList=charges.results||[];
     return {
       citizen:{citizenid:citizen.citizenid,name:citizen.character_name,profile,job:snapshot.job||{},gang:snapshot.gang||{},online:Boolean(citizen.is_online)&&Boolean(citizen.last_seen)&&now-Number(citizen.last_seen)<90000,lastSeen:citizen.last_seen,firstJoined:citizen.first_joined,playtimeSeconds:Number(citizen.playtime_seconds)||0,sessionsCount:Number(citizen.sessions_count)||0,updatedAt:citizen.updated_at},
-      licenses,vehicles,properties,
+      licenses,vehicles,properties,registeredLicenses:licenseRows.results||[],
       arrests:arrestsList.map(a=>({...a,charges:chargeList.filter(c=>c.arrest_id===a.id)})),
       legacyArrests:Array.isArray(records.arrests)?records.arrests:[],
       legacyCharges:Array.isArray(records.charges)?records.charges:[],
       reports:reports.results||[],
       warrants:Array.isArray(records.warrants)?records.warrants:[],
       registeredWeapons:(await env.DB.prepare("SELECT id,weapon_name AS weaponName,serial,notes,status,registered_by_name AS registeredBy,created_at,updated_at FROM cad_registered_weapons WHERE citizenid=? ORDER BY created_at DESC").bind(citizenid).all()).results||[],
-      dataAvailability:{licenses:Array.isArray(licenses)?licenses.length>0:(licenses&&typeof licenses==='object'?Object.keys(licenses).length>0:Boolean(licenses)),vehicles:true,properties:true,arrests:true,warrants:false,registeredWeapons:true}
+      dataAvailability:{licenses:Array.isArray(licenses)?licenses.length>0:(licenses&&typeof licenses==='object'?Object.keys(licenses).length>0:Boolean(licenses)),vehicles:true,properties:true,arrests:true,warrants:false,registeredWeapons:true,registeredLicenses:true}
     };
+  }
+  if(action==="createCitizenLicense"){
+    if(!leo)return {error:"Only Law Enforcement can issue licenses."};
+    const citizenid=String(body.citizenid||"").trim();
+    const licenseType=String(body.licenseType||"").trim();
+    const allowedTypes=["Vehicle License","CDL License","Firearms License I (Pistols and Shotguns)","Firearms License II (Rifles)","Firearms License III (Manufacturing)","FAA Pilots License","Boating License"];
+    const licenseNumber=String(body.licenseNumber||"").trim().slice(0,100);
+    const notes=String(body.notes||"").trim().slice(0,1000);
+    const issuedAt=String(body.issuedAt||"").trim().slice(0,10);
+    const expiresAt=String(body.expiresAt||"").trim().slice(0,10);
+    if(!/^[A-Za-z0-9_-]{2,64}$/.test(citizenid)||!allowedTypes.includes(licenseType))return {error:"Select a valid license type and citizen."};
+    if(issuedAt&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(issuedAt))return {error:"Issue date must be a valid date."};
+    if(expiresAt&&!/^\\d{4}-\\d{2}-\\d{2}$/.test(expiresAt))return {error:"Expiration date must be a valid date."};
+    const citizen=await env.DB.prepare("SELECT citizenid FROM portal_characters WHERE citizenid=?").bind(citizenid).first();
+    if(!citizen)return {error:"Citizen profile not found."};
+    const active=await env.DB.prepare("SELECT id FROM cad_citizen_licenses WHERE citizenid=? AND license_type=? AND status='Active' LIMIT 1").bind(citizenid,licenseType).first();
+    if(active)return {error:"This citizen already has an active "+licenseType+"."};
+    const id=crypto.randomUUID();
+    await env.DB.prepare("INSERT INTO cad_citizen_licenses (id,citizenid,license_type,license_number,status,notes,issued_at,expires_at,issued_by,issued_by_name,created_at,updated_at) VALUES (?,?,?,?, 'Active',?,?,?,?,?,?,?)").bind(id,citizenid,licenseType,licenseNumber,notes,issuedAt||null,expiresAt||null,officer.citizenid,officer.name,now,now).run();
+    await audit("license.issued",id,citizenid+":"+licenseType);
+    return {message:licenseType+" issued.",id};
+  }
+  if(action==="revokeCitizenLicense"){
+    if(!leo)return {error:"Only Law Enforcement can revoke licenses."};
+    const id=String(body.id||"").trim();
+    if(!id)return {error:"A license record ID is required."};
+    const result=await env.DB.prepare("UPDATE cad_citizen_licenses SET status='Revoked',updated_at=? WHERE id=? AND status='Active'").bind(now,id).run();
+    if(!Number(result.meta&&result.meta.changes||0))return {error:"Active license record not found."};
+    await audit("license.revoked",id,"License revoked");
+    return {message:"License revoked."};
   }
   if(action==="createRegisteredWeapon"){
     if(!leo)return {error:"Only Law Enforcement can register weapons."};
