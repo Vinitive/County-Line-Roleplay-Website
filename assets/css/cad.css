@@ -74,3 +74,8 @@
 .citizen-report-footer{grid-column:1/-1;display:flex;justify-content:flex-end;gap:9px;border-top:1px solid #303943;padding-top:16px}
 .citizen-report-footer button:disabled{opacity:.55;cursor:wait}
 @media(max-width:650px){#cadModal{padding:8px}#cadModal .cad-modal-card{width:100%;max-height:96vh;padding:20px}.citizen-report-form,.citizen-report-charge-list{grid-template-columns:1fr}.citizen-report-field.full{grid-column:auto}.citizen-report-charge{flex-wrap:wrap}.citizen-report-charge strong{margin-left:26px}.citizen-report-footer{flex-direction:column-reverse}.citizen-report-footer button{width:100%}}
+
+/* Citizen weapon registry */
+.citizen-weapon-toolbar{display:flex;justify-content:flex-end;margin:0 0 12px}
+.citizen-weapon-revoke{margin-top:10px;font-size:11px;padding:7px 10px}
+.citizen-weapon-toolbar .btn{font-size:11px}
