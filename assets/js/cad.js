@@ -136,6 +136,20 @@ function openCitizenReportForm(kind,citizenid,charges=[]){
     }catch(err){error.textContent=err.message||'Unable to save this report.';submit.disabled=false;submit.textContent=kind==='citation'?'ISSUE CITATION':'SAVE REPORT';}
   });
 }
+function openLicenseIssue(citizenid){
+  const types=["Vehicle License","CDL License","Firearms License I (Pistols and Shotguns)","Firearms License II (Rifles)","Firearms License III (Manufacturing)","FAA Pilots License","Boating License"];
+  $('cadModalBody').innerHTML='<div class="citizen-report-heading"><small>COUNTY LINE ROLEPLAY · LICENSE ADMINISTRATION</small><h2>ISSUE LICENSE</h2><p>License will be attached to Citizen ID: '+esc(citizenid)+'</p></div><form id="citizenLicenseForm" class="citizen-report-form"><label class="citizen-report-field full">LICENSE TYPE<select name="licenseType" required><option value="">Select a license...</option>'+types.map(t=>'<option value="'+esc(t)+'">'+esc(t)+'</option>').join('')+'</select></label><label class="citizen-report-field">LICENSE NUMBER<input name="licenseNumber" maxlength="100" placeholder="Optional"></label><label class="citizen-report-field">ISSUE DATE<input name="issuedAt" type="date"></label><label class="citizen-report-field">EXPIRATION DATE<input name="expiresAt" type="date"></label><label class="citizen-report-field full">NOTES<textarea name="notes" rows="3" maxlength="1000" placeholder="Optional conditions or details..."></textarea></label><div class="citizen-report-error" id="citizenLicenseError" role="alert"></div><div class="citizen-report-footer"><button type="button" class="btn btn-outline" id="citizenLicenseCancel">CANCEL</button><button type="submit" class="btn btn-gold" id="citizenLicenseSave">ISSUE LICENSE</button></div></form>';
+  $('cadModal').hidden=false;
+  $('citizenLicenseCancel').addEventListener('click',closeCitizenReport);
+  $('citizenLicenseForm').addEventListener('submit',async e=>{
+    e.preventDefault();const submit=$('citizenLicenseSave'),error=$('citizenLicenseError'),fd=new FormData(e.currentTarget);
+    submit.disabled=true;submit.textContent='ISSUING...';error.textContent='';
+    try{
+      await req('POST',{action:'createCitizenLicense',citizenid,licenseType:String(fd.get('licenseType')||''),licenseNumber:String(fd.get('licenseNumber')||'').trim(),issuedAt:String(fd.get('issuedAt')||''),expiresAt:String(fd.get('expiresAt')||''),notes:String(fd.get('notes')||'').trim()});
+      closeCitizenReport();note('License issued.');await openCitizenProfile(citizenid);
+    }catch(err){error.textContent=err.message||'Unable to issue license.';submit.disabled=false;submit.textContent='ISSUE LICENSE';}
+  });
+}
 function openWeaponRegistration(citizenid){
   $('cadModalBody').innerHTML='<div class="citizen-report-heading"><small>COUNTY LINE ROLEPLAY · WEAPON REGISTRY</small><h2>REGISTER WEAPON</h2><p>Registration will be attached to Citizen ID: '+esc(citizenid)+'</p></div><form id="citizenWeaponForm" class="citizen-report-form"><label class="citizen-report-field full">WEAPON NAME / MODEL<input name="weaponName" required maxlength="120" placeholder="e.g. Pistol .50"></label><label class="citizen-report-field full">SERIAL NUMBER<input name="serial" required maxlength="100" placeholder="Enter unique serial number"></label><label class="citizen-report-field full">NOTES<textarea name="notes" rows="4" maxlength="1000" placeholder="Optional identifying details..."></textarea></label><div class="citizen-report-error" id="citizenWeaponError" role="alert"></div><div class="citizen-report-footer"><button type="button" class="btn btn-outline" id="citizenWeaponCancel">CANCEL</button><button type="submit" class="btn btn-gold" id="citizenWeaponSave">REGISTER WEAPON</button></div></form>';
   $('cadModal').hidden=false;
@@ -176,9 +190,11 @@ async function openCitizenProfile(citizenid){
       fact('FIRST JOINED',c.firstJoined?new Date(c.firstJoined).toLocaleDateString():'Not provided'),
       fact('PLAYTIME',Math.floor((Number(c.playtimeSeconds)||0)/3600)+' hours')
     ].join('');
-    const licenseContent=availability.licenses
-      ?dataRows(Object.entries(r.licenses||{}).map(([name,value])=>({name,value})), 'No licenses are recorded.')
-      :empty('License data has not been synced for this citizen.');
+    const legacyLicenseContent=availability.licenses
+      ?dataRows(Object.entries(r.licenses||{}).map(([name,value])=>({name,value})), 'No synced licenses are recorded.')
+      :empty('No external license data has been synced.');
+    const issuedLicenseRows=(r.registeredLicenses||[]).map(l=>'<div class="citizen-data-row"><b>'+esc(l.licenseType)+'</b><span class="citizen-license-status">'+esc(l.status)+' · '+(l.licenseNumber?'No. '+esc(l.licenseNumber)+' · ':'')+'Issued: '+esc(l.issuedAt||'Not recorded')+' · Expires: '+esc(l.expiresAt||'No expiration')+'</span>'+(l.issuedBy?'<small>Issued by: '+esc(l.issuedBy)+'</small>':'')+(l.notes?'<p>'+esc(l.notes)+'</p>':'')+(l.status==='Active'?'<button class="btn btn-outline citizen-license-revoke" data-revoke-license="'+esc(l.id)+'" data-citizen-id="'+esc(c.citizenid||citizenid)+'">REVOKE LICENSE</button>':'')+'</div>').join('');
+    const licenseContent='<div class="citizen-license-toolbar"><button class="btn btn-gold" id="citizenIssueLicense" data-citizen-id="'+esc(c.citizenid||citizenid)+'">+ ISSUE LICENSE</button></div>'+(issuedLicenseRows||empty('No County Line licenses have been issued to this citizen.'))+'<details class="citizen-legacy-licenses"><summary>SYNCED CHARACTER LICENSE DATA</summary>'+legacyLicenseContent+'</details>';
     const vehicleContent=dataRows(r.vehicles,'No registered vehicles found.',v=>'<b>'+esc(v.label||v.model||'Vehicle')+'</b><span>Plate: '+esc(v.plate||'Not provided')+' · Garage: '+esc(v.garage||'Not provided')+' · Status: '+esc(displayValue(v.state))+'</span>');
     const propertyContent=dataRows(r.properties,'No owned properties found.',v=>'<b>'+esc(v.label||v.name||v.id||'Property')+'</b><span>'+esc(v.address||v.street||v.id||'Property record')+'</span>');
     const arrestItems=(r.arrests||[]).map(a=>'<div class="citizen-data-row"><b>ARREST · '+esc(new Date(a.created_at).toLocaleString())+'</b><span>Officer: '+esc(a.officer_name||'Not recorded')+' · RP fine: $'+Number(a.total_roleplay_fine||0).toLocaleString()+' · RP jail: '+esc(a.total_roleplay_jail_minutes||0)+' min</span><p>'+esc(a.narrative||'No narrative recorded.')+'</p>'+(a.charges||[]).map(ch=>'<small>'+esc(ch.charge_code+' · '+ch.charge_title)+' — '+esc(ch.offense_class||'')+' · '+esc(ch.statute||'')+'</small>').join('')+'</div>').join('');
@@ -207,6 +223,14 @@ $('webSearch').addEventListener('submit',async e=>{e.preventDefault();await runR
 $('webResults').addEventListener('click',async e=>{
   const profileButton=e.target.closest('[data-citizen-profile]');
   if(profileButton){await openCitizenProfile(profileButton.dataset.citizenProfile);return;}
+  const issueLicense=e.target.closest('#citizenIssueLicense');
+  if(issueLicense){openLicenseIssue(issueLicense.dataset.citizenId);return;}
+  const revokeLicense=e.target.closest('[data-revoke-license]');
+  if(revokeLicense){
+    if(!confirm('Revoke this license?'))return;
+    try{await req('POST',{action:'revokeCitizenLicense',id:revokeLicense.dataset.revokeLicense});note('License revoked.');await openCitizenProfile(revokeLicense.dataset.citizenId);}catch(err){note(err.message);}
+    return;
+  }
   const registerWeapon=e.target.closest('#citizenRegisterWeapon');
   if(registerWeapon){openWeaponRegistration(registerWeapon.dataset.citizenId);return;}
   const revokeWeapon=e.target.closest('[data-revoke-weapon]');
