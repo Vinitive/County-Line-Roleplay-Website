@@ -202,8 +202,6 @@ const handleCadAction = async (env, action, body, officer, access) => {
     const issuedAt=String(body.issuedAt||"").trim().slice(0,10);
     const expiresAt=String(body.expiresAt||"").trim().slice(0,10);
     if(!/^[A-Za-z0-9_-]{2,64}$/.test(citizenid)||!allowedTypes.includes(licenseType))return {error:"Select a valid license type and citizen."};
-    if(issuedAt&&!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(issuedAt))return {error:"Issue date must be a valid date."};
-    if(expiresAt&&!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(expiresAt))return {error:"Expiration date must be a valid date."};
     const citizen=await env.DB.prepare("SELECT citizenid FROM portal_characters WHERE citizenid=?").bind(citizenid).first();
     if(!citizen)return {error:"Citizen profile not found."};
     const active=await env.DB.prepare("SELECT id FROM cad_citizen_licenses WHERE citizenid=? AND license_type=? AND status='Active' LIMIT 1").bind(citizenid,licenseType).first();
