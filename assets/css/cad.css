@@ -88,3 +88,28 @@
 .citizen-legacy-licenses{border-top:1px solid #303943;margin-top:12px;padding-top:10px;color:#aeb8c2;font-size:11px}
 .citizen-legacy-licenses summary{cursor:pointer;color:#d5bd94;letter-spacing:.5px}
 .citizen-legacy-licenses>div{margin-top:8px}
+
+/* Custom County Line license selector */
+.citizen-report-field select{
+  appearance:none;
+  -webkit-appearance:none;
+  width:100%;
+  min-height:48px;
+  padding:12px 44px 12px 14px;
+  border:1px solid #66512f;
+  border-radius:3px;
+  color:#f1d6a6;
+  background-color:#1b2026;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23d4ad68' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 14px center;
+  font:600 13px 'DM Sans',sans-serif;
+  letter-spacing:.2px;
+  cursor:pointer;
+  outline:none;
+  transition:border-color .16s ease,box-shadow .16s ease,background-color .16s ease;
+}
+.citizen-report-field select:hover{border-color:#c99b4a;background-color:#242a31}
+.citizen-report-field select:focus{border-color:#e0b96f;box-shadow:0 0 0 3px #c99b4a2b}
+.citizen-report-field select:invalid{color:#929eaa}
+.citizen-report-field select option{background:#171e25;color:#edf0f3;padding:10px}
