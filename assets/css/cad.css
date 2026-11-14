@@ -113,3 +113,8 @@
 .citizen-report-field select:focus{border-color:#e0b96f;box-shadow:0 0 0 3px #c99b4a2b}
 .citizen-report-field select:invalid{color:#929eaa}
 .citizen-report-field select option{background:#171e25;color:#edf0f3;padding:10px}
+
+/* Founder-only CAD record controls */
+.citizen-charge-line{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:7px 0;border-top:1px solid rgba(255,255,255,.07)}
+.founder-remove-record{margin:8px 8px 2px 0!important;border-color:rgba(210,70,70,.55)!important;color:#ff9b9b!important;font-size:.72rem!important}
+.founder-remove-record:hover{background:rgba(160,35,35,.18)!important}
