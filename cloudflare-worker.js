@@ -82,6 +82,61 @@ const getDiscordAccess = async (env, discordId) => {
 const hasPermission = (access, permission) =>
   access.permissions.includes("*") || access.permissions.includes(permission);
 
+
+const handleCadAction = async (env, action, body, officer, access) => {
+  const now=Date.now(), leo=access==="leo", allowed=leo||access==="dispatch";
+  if(!allowed)return {error:"CAD access denied."};
+  const audit=async(a,id=null,d="")=>env.DB.prepare("INSERT INTO cad_audit (id,actor_id,actor_name,action,target_id,details,created_at) VALUES (?,?,?,?,?,?,?)").bind(crypto.randomUUID(),officer.citizenid,officer.name,a,id,String(d).slice(0,1000),now).run();
+  if(action==="bootstrap"){
+    await env.DB.prepare("INSERT INTO cad_units (citizenid,callsign,officer_name,job,access,status,last_seen) VALUES (?,?,?,?,?,'Available',?) ON CONFLICT(citizenid) DO UPDATE SET callsign=excluded.callsign,officer_name=excluded.officer_name,job=excluded.job,access=excluded.access,last_seen=excluded.last_seen").bind(officer.citizenid,officer.callsign||"",officer.name,officer.job||"Unit",access,now).run();
+    const [c,u,b,a]=await Promise.all([
+      env.DB.prepare("SELECT * FROM cad_calls WHERE status!='Closed' ORDER BY created_at DESC LIMIT 100").all(),
+      env.DB.prepare("SELECT citizenid,callsign,officer_name AS name,job,status,current_call_id FROM cad_units WHERE last_seen>? ORDER BY callsign").bind(now-120000).all(),
+      env.DB.prepare("SELECT * FROM cad_bolos WHERE active=1 ORDER BY created_at DESC LIMIT 100").all(),
+      env.DB.prepare("SELECT call_id,citizenid,callsign,officer_name AS name FROM cad_call_units").all()
+    ]);
+    const map={};for(const x of a.results||[])(map[x.call_id]??=[]).push({callsign:x.callsign,name:x.name,citizenid:x.citizenid});
+    return {access,officer,calls:(c.results||[]).map(x=>({...x,units:map[x.id]||[]})),units:u.results||[],bolos:b.results||[]};
+  }
+  if(action==="setStatus"){
+    const status=String(body.status||"");
+    if(!["Available","En Route","On Scene","Busy","Out of Service"].includes(status))return {error:"Invalid unit status."};
+    await env.DB.prepare("UPDATE cad_units SET status=?,last_seen=? WHERE citizenid=?").bind(status,now,officer.citizenid).run();await audit("unit.status",officer.citizenid,status);return {message:"Unit status updated.",status};
+  }
+  if(action==="createCall"){
+    const type=String(body.call_type||"").trim().slice(0,100),loc=String(body.location||"").trim().slice(0,180),desc=String(body.description||"").trim().slice(0,2000),priority=String(body.priority||"3 - Routine");
+    if(!type||!loc||!["1 - Emergency","2 - Urgent","3 - Routine","4 - Information"].includes(priority))return {error:"Call type, location, and valid priority are required."};
+    const id=crypto.randomUUID(),n=await env.DB.prepare("SELECT COUNT(*) AS total FROM cad_calls WHERE created_at>=?").bind(new Date().setHours(0,0,0,0)).first(),num="CL-"+new Date().toISOString().slice(2,10).replace(/-/g,"")+"-"+String((Number(n?.total)||0)+1).padStart(3,"0");
+    await env.DB.prepare("INSERT INTO cad_calls (id,call_number,call_type,location,priority,description,status,created_by,created_by_name,created_at,updated_at) VALUES (?,?,?,?,?,?,'Pending',?,?,?,?)").bind(id,num,type,loc,priority,desc,officer.citizenid,officer.name,now,now).run();await audit("call.created",id,num+" "+type);return {message:"Call created: "+num,refresh:true};
+  }
+  if(action==="assignCall"){
+    const id=String(body.callId||""),exists=await env.DB.prepare("SELECT id FROM cad_calls WHERE id=? AND status!='Closed'").bind(id).first();if(!exists)return {error:"Active call not found."};
+    await env.DB.prepare("INSERT INTO cad_call_units (call_id,citizenid,callsign,officer_name,assigned_at) VALUES (?,?,?,?,?) ON CONFLICT(call_id,citizenid) DO UPDATE SET assigned_at=excluded.assigned_at").bind(id,officer.citizenid,officer.callsign||"",officer.name,now).run();
+    await env.DB.prepare("UPDATE cad_units SET current_call_id=?,status='En Route',last_seen=? WHERE citizenid=?").bind(id,now,officer.citizenid).run();await env.DB.prepare("UPDATE cad_calls SET status='Dispatched',updated_at=? WHERE id=? AND status='Pending'").bind(now,id).run();await audit("call.assigned",id,officer.callsign||officer.name);return {message:"Unit assigned.",refresh:true};
+  }
+  if(action==="updateCall"){
+    const id=String(body.callId||""),status=String(body.status||"");if(!["Pending","Dispatched","On Scene","Closed"].includes(status))return {error:"Invalid call status."};
+    const q=await env.DB.prepare("UPDATE cad_calls SET status=?,updated_at=?,closed_at=? WHERE id=?").bind(status,now,status==="Closed"?now:null,id).run();if(!Number(q.meta?.changes||0))return {error:"Call not found."};
+    if(status==="Closed"){await env.DB.prepare("DELETE FROM cad_call_units WHERE call_id=?").bind(id).run();await env.DB.prepare("UPDATE cad_units SET current_call_id=NULL,status='Available',last_seen=? WHERE current_call_id=?").bind(now,id).run();}
+    await audit("call.status",id,status);return {message:"Call status updated.",refresh:true};
+  }
+  if(action==="search"){
+    if(!leo)return {error:"Records search is restricted to Law Enforcement."};const q=String(body.query||"").trim().slice(0,100);if(q.length<2)return {error:"Enter at least two characters."};let rows=[];
+    if(body.searchType==="vehicle"){const x=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE payload LIKE ? LIMIT 30").bind("%"+q+"%").all();rows=(x.results||[]).map(v=>({name:v.character_name,citizenid:v.citizenid,details:"Vehicle data match in linked character record."}));}
+    else{const x=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE citizenid LIKE ? OR character_name LIKE ? LIMIT 30").bind("%"+q+"%","%"+q+"%").all();rows=(x.results||[]).map(v=>({name:v.character_name,citizenid:v.citizenid,details:"Citizen ID: "+v.citizenid}));}
+    const x=await env.DB.prepare("SELECT record_type,subject,title,details,created_at FROM cad_records WHERE subject LIKE ? OR title LIKE ? ORDER BY created_at DESC LIMIT 30").bind("%"+q+"%","%"+q+"%").all();rows.push(...(x.results||[]).map(v=>({name:v.title,details:v.record_type+" · "+v.subject+" · "+v.details,created_at:v.created_at})));await audit("records.search",null,q);return {records:rows};
+  }
+  if(action==="createRecord"){
+    if(!leo)return {error:"Only Law Enforcement can create reports."};const type=String(body.record_type||"Incident Report").slice(0,50),subject=String(body.subject||"").trim().slice(0,120),title=String(body.title||"").trim().slice(0,150),details=String(body.details||"").trim().slice(0,5000);if(!subject||!title||!details)return {error:"Subject, title, and narrative are required."};
+    const id=crypto.randomUUID();await env.DB.prepare("INSERT INTO cad_records (id,record_type,subject,title,details,officer_citizenid,officer_name,created_at) VALUES (?,?,?,?,?,?,?,?)").bind(id,type,subject,title,details,officer.citizenid,officer.name,now).run();await audit("record.created",id,type+":"+subject);return {message:type+" saved.",refresh:true};
+  }
+  if(action==="createBolo"){
+    if(!leo)return {error:"Only Law Enforcement can create BOLOs."};const type=String(body.bolo_type||"Other").slice(0,30),title=String(body.title||"").trim().slice(0,150),description=String(body.description||"").trim().slice(0,2000);if(!title||!description)return {error:"BOLO subject and description are required."};
+    const id=crypto.randomUUID();await env.DB.prepare("INSERT INTO cad_bolos (id,bolo_type,title,description,created_by,created_by_name,created_at,active) VALUES (?,?,?,?,?,?,?,1)").bind(id,type,title,description,officer.citizenid,officer.name,now).run();await audit("bolo.created",id,title);return {message:"BOLO published.",refresh:true};
+  }
+  return {error:"Unknown CAD action."};
+};
+
 const portalRedirect = (env, authResult) => {
   const destination = new URL(env.FRONTEND_PORTAL_URL);
   if (authResult) destination.searchParams.set("auth", authResult);
@@ -291,6 +346,13 @@ export default {
           return json({ ok: true, updated });
         }
 
+        if (url.pathname === "/api/server/cad") {
+          const officer=body.officer||{}, access=body.access==="leo"||body.access==="dispatch"?body.access:"";
+          if(!officer.citizenid||!officer.name||!access)return json({error:"Invalid trusted unit identity."},400);
+          const result=await handleCadAction(env,String(body.action||"bootstrap"),body,officer,access);
+          return json(result,result.error?400:200);
+        }
+
         return json({ error: "Not found." }, 404);
       }
 
@@ -394,6 +456,17 @@ export default {
               "SELECT discord_id, username, global_name, avatar FROM portal_sessions WHERE token_hash = ? AND expires_at > ?"
             ).bind(await sha256(rawSession), Date.now()).first()
           : null;
+
+        if (url.pathname === "/api/cad" && ["GET","POST"].includes(request.method)) {
+          if(!session)return json({error:"Please sign in again."},401,corsHeaders);
+          let access;try{access=await getDiscordAccess(env,session.discord_id);}catch(error){return json({error:"Unable to verify your Discord roles."},503,corsHeaders);}
+          const leo=hasPermission(access,"mdt.leo"),dispatch=hasPermission(access,"dispatch.access");
+          if(!leo&&!dispatch)return json({error:"CAD access is restricted to Law Enforcement and Dispatch."},403,corsHeaders);
+          const officer={citizenid:"discord:"+session.discord_id,name:session.global_name||session.username,callsign:"",job:leo?"Law Enforcement":"Dispatch"};
+          const body=request.method==="POST"?await request.json():{};
+          const result=await handleCadAction(env,request.method==="GET"?"bootstrap":String(body.action||"bootstrap"),body,officer,leo?"leo":"dispatch");
+          return json(result,result.error?400:200,corsHeaders);
+        }
 
         if (url.pathname === "/api/staff/careers" && ["GET", "POST", "DELETE"].includes(request.method)) {
           if (!session) return json({ error: "Please sign in again." }, 401, corsHeaders);
