@@ -136,6 +136,19 @@ function openCitizenReportForm(kind,citizenid,charges=[]){
     }catch(err){error.textContent=err.message||'Unable to save this report.';submit.disabled=false;submit.textContent=kind==='citation'?'ISSUE CITATION':'SAVE REPORT';}
   });
 }
+function openWeaponRegistration(citizenid){
+  $('cadModalBody').innerHTML='<div class="citizen-report-heading"><small>COUNTY LINE ROLEPLAY · WEAPON REGISTRY</small><h2>REGISTER WEAPON</h2><p>Registration will be attached to Citizen ID: '+esc(citizenid)+'</p></div><form id="citizenWeaponForm" class="citizen-report-form"><label class="citizen-report-field full">WEAPON NAME / MODEL<input name="weaponName" required maxlength="120" placeholder="e.g. Pistol .50"></label><label class="citizen-report-field full">SERIAL NUMBER<input name="serial" required maxlength="100" placeholder="Enter unique serial number"></label><label class="citizen-report-field full">NOTES<textarea name="notes" rows="4" maxlength="1000" placeholder="Optional identifying details..."></textarea></label><div class="citizen-report-error" id="citizenWeaponError" role="alert"></div><div class="citizen-report-footer"><button type="button" class="btn btn-outline" id="citizenWeaponCancel">CANCEL</button><button type="submit" class="btn btn-gold" id="citizenWeaponSave">REGISTER WEAPON</button></div></form>';
+  $('cadModal').hidden=false;
+  $('citizenWeaponCancel').addEventListener('click',closeCitizenReport);
+  $('citizenWeaponForm').addEventListener('submit',async e=>{
+    e.preventDefault();const submit=$('citizenWeaponSave'),error=$('citizenWeaponError'),fd=new FormData(e.currentTarget);
+    submit.disabled=true;submit.textContent='REGISTERING...';error.textContent='';
+    try{
+      await req('POST',{action:'createRegisteredWeapon',citizenid,weaponName:String(fd.get('weaponName')||'').trim(),serial:String(fd.get('serial')||'').trim(),notes:String(fd.get('notes')||'').trim()});
+      closeCitizenReport();note('Weapon registered.');await openCitizenProfile(citizenid);
+    }catch(err){error.textContent=err.message;submit.disabled=false;submit.textContent='REGISTER WEAPON';}
+  });
+}
 async function startCitizenAction(kind,citizenid){
   try{
     if(kind==='arrest'){
@@ -173,7 +186,9 @@ async function openCitizenProfile(citizenid){
     const legacyCharges=dataRows(r.legacyCharges||[],'',ch=>'<b>'+esc(ch.charge||ch.title||'Prior charge')+'</b><span>Fine: $'+Number(ch.fine||0).toLocaleString()+' · Jail: '+esc(ch.time||0)+' min</span>');
     const arrestContent=arrestItems||legacyArrests+legacyCharges||empty('No prior arrests or charges are on file.');
     const warrantContent=availability.warrants?dataRows(r.warrants,'No active warrants.',w=>'<b>'+esc(w.title||w.type||'Warrant')+'</b><span>'+esc(w.status||'Active')+' · '+esc(w.details||'')+'</span>'):empty('Warrant records are not connected to the County Line CAD yet.');
-    const weaponContent=availability.registeredWeapons?dataRows(r.registeredWeapons,'No registered weapons found.',w=>'<b>'+esc(w.weaponName||w.name||w.label||'Registered weapon')+'</b><span>Serial: '+esc(w.serial||'Not provided')+' · '+esc(w.status||'Registered')+'</span>'):empty('The registered-weapons registry is not connected yet.');
+    const weaponRows=(r.registeredWeapons||[]).map(w=>'<div class="citizen-data-row"><b>'+esc(w.weaponName||'Registered weapon')+'</b><span>Serial: '+esc(w.serial)+' · '+esc(w.status)+' · Registered by: '+esc(w.registeredBy||'Unknown')+'</span>'+(w.notes?'<p>'+esc(w.notes)+'</p>':'')+(w.status==='Registered'?'<button class="btn btn-outline citizen-weapon-revoke" data-revoke-weapon="'+esc(w.id)+'" data-citizen-id="'+esc(c.citizenid||citizenid)+'">REVOKE REGISTRATION</button>':'')+'</div>').join('');
+    const weaponContent='<div class="citizen-weapon-toolbar"><button class="btn btn-gold" id="citizenRegisterWeapon" data-citizen-id="'+esc(c.citizenid||citizenid)+'">+ REGISTER WEAPON</button></div>'+(weaponRows||empty('No weapons are registered to this citizen.'));
+
     const reportContent=dataRows(r.reports||[],'No linked incident reports.',v=>'<b>'+esc(v.title||v.record_type||'Incident report')+'</b><span>'+esc(v.created_at?new Date(v.created_at).toLocaleString():'Date not provided')+' · '+esc(v.officer_name||'')+'</span><p>'+esc(v.details||'')+'</p>');
     $('webResults').innerHTML='<div class="citizen-profile"><div class="citizen-profile-top"><div><small>COUNTY LINE ROLEPLAY · CITIZEN DOSSIER</small><h2>'+esc(c.name||'Unknown Citizen')+'</h2><p>CITIZEN ID · '+esc(c.citizenid||citizenid)+'</p></div>'+status+'</div><div class="citizen-profile-facts">'+profileFacts+'</div><div class="citizen-profile-grid">'+section('LICENSES',licenseContent)+section('REGISTERED VEHICLES',vehicleContent)+section('OWNED PROPERTIES',propertyContent)+section('ARREST & CHARGE HISTORY',arrestContent)+section('ACTIVE WARRANTS',warrantContent)+section('REGISTERED WEAPONS',weaponContent)+section('LINKED INCIDENT REPORTS',reportContent)+'</div><div class="citizen-result-actions"><button data-citizen-action="arrest" data-citizen-id="'+esc(c.citizenid||citizenid)+'">ARREST REPORT</button><button data-citizen-action="incident" data-citizen-id="'+esc(c.citizenid||citizenid)+'">INCIDENT REPORT</button><button data-citizen-action="citation" data-citizen-id="'+esc(c.citizenid||citizenid)+'">CITATION</button><button id="citizenBackToSearch">← BACK TO CITIZEN SEARCH</button></div><p class="cad-muted">Profile data last synced: '+esc(c.updatedAt?new Date(c.updatedAt).toLocaleString():'Not available')+'</p></div>';
     $('citizenBackToSearch').addEventListener('click',()=>renderCitizenResults(lastCitizenRecords));
@@ -192,6 +207,14 @@ $('webSearch').addEventListener('submit',async e=>{e.preventDefault();await runR
 $('webResults').addEventListener('click',async e=>{
   const profileButton=e.target.closest('[data-citizen-profile]');
   if(profileButton){await openCitizenProfile(profileButton.dataset.citizenProfile);return;}
+  const registerWeapon=e.target.closest('#citizenRegisterWeapon');
+  if(registerWeapon){openWeaponRegistration(registerWeapon.dataset.citizenId);return;}
+  const revokeWeapon=e.target.closest('[data-revoke-weapon]');
+  if(revokeWeapon){
+    if(!confirm('Revoke this weapon registration?'))return;
+    try{await req('POST',{action:'revokeRegisteredWeapon',id:revokeWeapon.dataset.revokeWeapon});note('Weapon registration revoked.');await openCitizenProfile(revokeWeapon.dataset.citizenId);}catch(err){note(err.message);}
+    return;
+  }
   const actionButton=e.target.closest('[data-citizen-action]');
   if(actionButton)startCitizenAction(actionButton.dataset.citizenAction,actionButton.dataset.citizenId).catch(error=>note(error.message));
 });
