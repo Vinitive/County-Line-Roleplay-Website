@@ -96,6 +96,15 @@ function renderCitizenResults(records){
     return '<article class="cad-result"><h3>'+esc(x.name||'Record')+'</h3><p>'+esc(x.details||'')+'</p></article>';
   }).join(''):empty('No matching citizens found.');
 }
+async function startCitizenAction(kind,citizenid){
+ const title=prompt('Report title or violation:');
+ if(!title)return;
+ const details=prompt('Enter report details:')||'';
+ const recordType=kind==='citation'?'Citation':'Incident Report';
+ await req('POST',{action:'createRecord',record_type:recordType,subject:citizenid,title,details});
+ note('Report saved.');
+ await openCitizenProfile(citizenid);
+}
 async function openCitizenProfile(citizenid){
   $('webResults').innerHTML=empty('Loading citizen dossier...');
   try{
@@ -125,7 +134,7 @@ async function openCitizenProfile(citizenid){
     const warrantContent=availability.warrants?dataRows(r.warrants,'No active warrants.',w=>'<b>'+esc(w.title||w.type||'Warrant')+'</b><span>'+esc(w.status||'Active')+' · '+esc(w.details||'')+'</span>'):empty('Warrant records are not connected to the County Line CAD yet.');
     const weaponContent=availability.registeredWeapons?dataRows(r.registeredWeapons,'No registered weapons found.',w=>'<b>'+esc(w.weaponName||w.name||w.label||'Registered weapon')+'</b><span>Serial: '+esc(w.serial||'Not provided')+' · '+esc(w.status||'Registered')+'</span>'):empty('The registered-weapons registry is not connected yet.');
     const reportContent=dataRows(r.reports||[],'No linked incident reports.',v=>'<b>'+esc(v.title||v.record_type||'Incident report')+'</b><span>'+esc(v.created_at?new Date(v.created_at).toLocaleString():'Date not provided')+' · '+esc(v.officer_name||'')+'</span><p>'+esc(v.details||'')+'</p>');
-    $('webResults').innerHTML='<div class="citizen-profile"><div class="citizen-profile-top"><div><small>COUNTY LINE ROLEPLAY · CITIZEN DOSSIER</small><h2>'+esc(c.name||'Unknown Citizen')+'</h2><p>CITIZEN ID · '+esc(c.citizenid||citizenid)+'</p></div>'+status+'</div><div class="citizen-profile-facts">'+profileFacts+'</div><div class="citizen-profile-grid">'+section('LICENSES',licenseContent)+section('REGISTERED VEHICLES',vehicleContent)+section('OWNED PROPERTIES',propertyContent)+section('ARREST & CHARGE HISTORY',arrestContent)+section('ACTIVE WARRANTS',warrantContent)+section('REGISTERED WEAPONS',weaponContent)+section('LINKED INCIDENT REPORTS',reportContent)+'</div><div class="citizen-result-actions"><button class="btn btn-outline" id="citizenBackToSearch">← BACK TO CITIZEN SEARCH</button></div><p class="cad-muted">Profile data last synced: '+esc(c.updatedAt?new Date(c.updatedAt).toLocaleString():'Not available')+'</p></div>';
+    $('webResults').innerHTML='<div class="citizen-profile"><div class="citizen-profile-top"><div><small>COUNTY LINE ROLEPLAY · CITIZEN DOSSIER</small><h2>'+esc(c.name||'Unknown Citizen')+'</h2><p>CITIZEN ID · '+esc(c.citizenid||citizenid)+'</p></div>'+status+'</div><div class="citizen-profile-facts">'+profileFacts+'</div><div class="citizen-profile-grid">'+section('LICENSES',licenseContent)+section('REGISTERED VEHICLES',vehicleContent)+section('OWNED PROPERTIES',propertyContent)+section('ARREST & CHARGE HISTORY',arrestContent)+section('ACTIVE WARRANTS',warrantContent)+section('REGISTERED WEAPONS',weaponContent)+section('LINKED INCIDENT REPORTS',reportContent)+'</div><div class="citizen-result-actions"><button data-citizen-action="arrest" data-citizen-id="'+esc(c.citizenid||citizenid)+'">ARREST REPORT</button><button data-citizen-action="incident" data-citizen-id="'+esc(c.citizenid||citizenid)+'">INCIDENT REPORT</button><button data-citizen-action="citation" data-citizen-id="'+esc(c.citizenid||citizenid)+'">CITATION</button><button id="citizenBackToSearch">← BACK TO CITIZEN SEARCH</button></div><p class="cad-muted">Profile data last synced: '+esc(c.updatedAt?new Date(c.updatedAt).toLocaleString():'Not available')+'</p></div>';
     $('citizenBackToSearch').addEventListener('click',()=>renderCitizenResults(lastCitizenRecords));
   }catch(error){$('webResults').innerHTML=empty(error.message||'Unable to load this citizen profile.');}
 }
@@ -141,7 +150,9 @@ async function runRecordSearch(){
 $('webSearch').addEventListener('submit',async e=>{e.preventDefault();await runRecordSearch();});
 $('webResults').addEventListener('click',async e=>{
   const profileButton=e.target.closest('[data-citizen-profile]');
-  if(profileButton)await openCitizenProfile(profileButton.dataset.citizenProfile);
+  if(profileButton){await openCitizenProfile(profileButton.dataset.citizenProfile);return;}
+  const actionButton=e.target.closest('[data-citizen-action]');
+  if(actionButton)startCitizenAction(actionButton.dataset.citizenAction,actionButton.dataset.citizenId).catch(error=>note(error.message));
 });
 async function openChargeCatalog(){
   try{
