@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>County Line CAD</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" class="cad-shell" hidden>
+<header class="topbar">
+  <div class="brand"><div class="brand-mark">CL</div><div><strong>COUNTY LINE</strong><small>COMPUTER AIDED DISPATCH</small></div></div>
+  <div class="top-meta"><span id="unitName">UNIT OFFLINE</span><span class="live-dot"></span><span>LIVE SYSTEM</span><button id="closeBtn">EXIT ×</button></div>
+</header>
+<main class="layout">
+  <aside class="sidebar">
+    <div class="section-label">OPERATIONS</div>
+    <button class="nav active" data-panel="calls">▣ <span>Active Calls</span><b id="callCount">0</b></button>
+    <button class="nav" data-panel="units">◉ <span>Unit Roster</span></button>
+    <button class="nav" data-panel="records">▤ <span>Records Search</span></button>
+    <button class="nav" data-panel="bolos">⚑ <span>BOLO Board</span></button>
+    <div class="side-bottom"><small>COUNTY LINE ROLEPLAY</small><strong>CAD / MDT v1.0</strong></div>
+  </aside>
+  <section class="workspace">
+    <div class="workspace-head"><div><span class="eyebrow">COUNTY LINE · PUBLIC SAFETY</span><h1 id="panelTitle">ACTIVE CALLS</h1></div><div class="head-actions"><select id="unitStatus"><option>Available</option><option>En Route</option><option>On Scene</option><option>Busy</option><option>Out of Service</option></select><button class="primary" id="newCallBtn">＋ CREATE CALL</button></div></div>
+    <div class="stats"><article><small>ACTIVE CALLS</small><strong id="statCalls">0</strong></article><article><small>UNITS AVAILABLE</small><strong id="statAvailable">0</strong></article><article><small>UNITS ON DUTY</small><strong id="statUnits">0</strong></article><article><small>ACTIVE BOLOS</small><strong id="statBolos">0</strong></article></div>
+    <div id="message" class="message">Connecting to County Line CAD...</div>
+    <section id="panel-calls" class="panel active"><div class="panel-title"><div><h2>CALL QUEUE</h2><p>Live incidents requiring unit response</p></div><span class="tag">DISPATCH FEED</span></div><div id="callsList" class="call-list"></div></section>
+    <section id="panel-units" class="panel"><div class="panel-title"><div><h2>UNIT ROSTER</h2><p>On-duty law enforcement and dispatch personnel</p></div></div><div id="unitsList" class="unit-grid"></div></section>
+    <section id="panel-records" class="panel"><div class="panel-title"><div><h2>RECORDS TERMINAL</h2><p>Search citizen and vehicle records</p></div></div><form id="searchForm" class="search-form"><select id="searchType"><option value="person">Person</option><option value="vehicle">Vehicle</option></select><input id="searchQuery" placeholder="Enter name, citizen ID, or plate..." required><button class="primary">SEARCH RECORDS</button></form><div id="searchResults" class="results"></div><div class="record-actions"><button class="secondary" id="newReportBtn">＋ NEW INCIDENT REPORT</button><button class="secondary" id="newBoloBtn">＋ CREATE BOLO</button></div></section>
+    <section id="panel-bolos" class="panel"><div class="panel-title"><div><h2>BOLO BOARD</h2><p>Be on the lookout notices</p></div></div><div id="bolosList" class="call-list"></div></section>
+  </section>
+</main>
+</div>
+<div id="modal" class="modal" hidden><div class="modal-card"><button class="modal-close" id="modalClose">×</button><div id="modalContent"></div></div></div>
+<script src="app.js"></script>
+</body></html>
