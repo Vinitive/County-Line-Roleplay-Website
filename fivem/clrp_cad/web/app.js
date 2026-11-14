@@ -49,8 +49,8 @@ function initDispatchMap(){
  crs.transformation=new L.Transformation(u,-u*cfg.topLeft[0],d,-d*cfg.topLeft[1]);
  crs.infinite=false;crs.scale=z=>Math.pow(2,z);crs.zoom=s=>Math.log(s)/Math.LN2;crs.distance=(a,b)=>Math.hypot(b.lng-a.lng,b.lat-a.lat);
  const bounds=[[-5100,-4140],[8400,4860]];
- dispatchMap=L.map('clrpDispatchMap',{crs,minZoom:0,maxZoom:6,zoomControl:true,attributionControl:true,maxBounds:bounds,maxBoundsViscosity:1,preferCanvas:true});
- L.tileLayer('https://postal-code-map-tile.pages.dev/tiles/{z}/{x}/{y}.png',{tileSize:256,minZoom:0,maxZoom:6,maxNativeZoom:6,noWrap:true,bounds,attribution:'Four-digit postal map · Virus_City / Acc-Off'}).addTo(dispatchMap);
+ dispatchMap=L.map('clrpDispatchMap',{crs,minZoom:0,maxZoom:6,zoomControl:true,attributionControl:true,preferCanvas:true});
+ L.tileLayer('https://postal-code-map-tile.pages.dev/tiles/{z}/{x}/{y}.png',{tileSize:256,maxNativeZoom:6,noWrap:true,attribution:'Four-digit postal map · Virus_City / Acc-Off'}).addTo(dispatchMap);
  dispatchMap.fitBounds(bounds);
  drawCallMarkers();
  fetch('postals.json').then(r=>{if(!r.ok)throw new Error('Postal coordinate data unavailable');return r.json();}).then(rows=>{postalData=rows.filter(p=>/^\d{4}$/.test(String(p.code)));$('mapHint').textContent='Postal map ready · Dispatch can place calls by selecting a location.';}).catch(err=>{console.warn(err);$('mapHint').textContent='Map loaded; postal lookup data unavailable.';});
