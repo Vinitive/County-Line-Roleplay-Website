@@ -26,6 +26,9 @@ end)
 
 RegisterNetEvent('clrp-cad:client:result', function(requestId, payload)
   SendNUIMessage({ action = 'result', requestId = requestId, data = payload })
+  if payload and payload.refresh then
+    TriggerServerEvent('clrp-cad:server:open')
+  end
 end)
 
 RegisterNUICallback('close', function(_, cb)
