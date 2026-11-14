@@ -88,7 +88,7 @@ const handleCadAction = async (env, action, body, officer, access) => {
   if(!allowed)return {error:"CAD access denied."};
   const audit=async(a,id=null,d="")=>env.DB.prepare("INSERT INTO cad_audit (id,actor_id,actor_name,action,target_id,details,created_at) VALUES (?,?,?,?,?,?,?)").bind(crypto.randomUUID(),officer.citizenid,officer.name,a,id,String(d).slice(0,1000),now).run();
   if(action==="bootstrap"){
-    await env.DB.prepare("INSERT INTO cad_units (citizenid,callsign,officer_name,job,access,status,last_seen) VALUES (?,?,?,?,?,'Available',?) ON CONFLICT(citizenid) DO UPDATE SET callsign=excluded.callsign,officer_name=excluded.officer_name,job=excluded.job,access=excluded.access,last_seen=excluded.last_seen").bind(officer.citizenid,officer.callsign||"",officer.name,officer.job||"Unit",access,now).run();
+    await env.DB.prepare("INSERT INTO cad_units (citizenid,callsign,officer_name,job,access,status,last_seen) VALUES (?,?,?,?,?,'Available',?) ON CONFLICT(citizenid) DO UPDATE SET callsign=CASE WHEN excluded.callsign='' THEN cad_units.callsign ELSE excluded.callsign END,officer_name=excluded.officer_name,job=CASE WHEN excluded.job IN ('Law Enforcement','Dispatch') THEN cad_units.job ELSE excluded.job END,access=excluded.access,last_seen=excluded.last_seen").bind(officer.citizenid,officer.callsign||"",officer.name,officer.job||"Unit",access,now).run();
     const [c,u,b,a]=await Promise.all([
       env.DB.prepare("SELECT * FROM cad_calls WHERE status!='Closed' ORDER BY created_at DESC LIMIT 100").all(),
       env.DB.prepare("SELECT citizenid,callsign,officer_name AS name,job,status,current_call_id FROM cad_units WHERE last_seen>? ORDER BY callsign").bind(now-120000).all(),
@@ -462,7 +462,10 @@ export default {
           let access;try{access=await getDiscordAccess(env,session.discord_id);}catch(error){return json({error:"Unable to verify your Discord roles."},503,corsHeaders);}
           const leo=hasPermission(access,"mdt.leo"),dispatch=hasPermission(access,"dispatch.access");
           if(!leo&&!dispatch)return json({error:"CAD access is restricted to Law Enforcement and Dispatch."},403,corsHeaders);
-          const officer={citizenid:"discord:"+session.discord_id,name:session.global_name||session.username,callsign:"",job:leo?"Law Enforcement":"Dispatch"};
+          const linkedCharacter=await env.DB.prepare("SELECT citizenid,character_name FROM portal_characters WHERE discord_id=? ORDER BY is_online DESC,last_seen DESC,updated_at DESC LIMIT 1").bind(session.discord_id).first();
+          const officer=linkedCharacter
+            ? {citizenid:linkedCharacter.citizenid,name:linkedCharacter.character_name,callsign:"",job:leo?"Law Enforcement":"Dispatch"}
+            : {citizenid:"discord:"+session.discord_id,name:session.global_name||session.username,callsign:"",job:leo?"Law Enforcement":"Dispatch"};
           const body=request.method==="POST"?await request.json():{};
           const result=await handleCadAction(env,request.method==="GET"?"bootstrap":String(body.action||"bootstrap"),body,officer,leo?"leo":"dispatch");
           return json(result,result.error?400:200,corsHeaders);
