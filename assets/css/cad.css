@@ -12,3 +12,35 @@
 
 /* Citizen search and dossier */
 .citizen-result-actions{display:flex;gap:8px;flex-wrap:wrap}.citizen-profile{background:#11161b;border:1px solid #303943;padding:20px}.citizen-profile-top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #303943;padding-bottom:16px}.citizen-profile-top small{color:#c99b4a;letter-spacing:1.3px;font-size:9px}.citizen-profile-top h2{font:800 28px 'Barlow Condensed';margin:5px 0}.citizen-profile-top p{font-size:11px;color:#aeb8c2}.citizen-profile-status{border:1px solid #466c59;color:#9bd3ad;padding:6px 10px;font-size:10px}.citizen-profile-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:16px 0}.citizen-profile-facts span{background:#171c22;padding:10px;color:#e8edf1;font-size:12px}.citizen-profile-facts b{display:block;color:#8c98a5;font-size:9px;letter-spacing:1px;margin-bottom:5px}.citizen-profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.citizen-profile-section{min-width:0;background:#171c22;border:1px solid #303943;padding:13px}.citizen-profile-section h3{font:700 16px 'Barlow Condensed';letter-spacing:.8px;margin:0 0 10px;color:#e7c88f}.citizen-profile-section pre{white-space:pre-wrap;overflow-wrap:anywhere;font:11px 'DM Sans';color:#dce3e9}.citizen-data-row{border-top:1px solid #303943;padding:9px 0;font-size:11px}.citizen-data-row:first-of-type{border-top:0}.citizen-data-row b,.citizen-data-row span,.citizen-data-row small{display:block;margin-bottom:4px}.citizen-data-row span,.citizen-data-row small{color:#aeb8c2}.citizen-data-row p{font-size:11px}.citizen-data-row ul{padding-left:18px;color:#dce3e9}@media(max-width:700px){.citizen-profile-grid{grid-template-columns:1fr}.citizen-profile-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.citizen-result-actions{flex-direction:column}}
+
+
+/* Citizen dossier action buttons */
+.citizen-result-actions{margin-top:20px;padding-top:16px;border-top:1px solid #303943;align-items:center}
+.citizen-result-actions button{
+  appearance:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:40px;
+  padding:10px 16px;
+  border:1px solid #806337;
+  border-radius:3px;
+  background:linear-gradient(180deg,#302719 0%,#211c15 100%);
+  color:#f1d6a6;
+  font:700 11px 'DM Sans',sans-serif;
+  letter-spacing:1px;
+  cursor:pointer;
+  transition:background .16s ease,border-color .16s ease,color .16s ease,transform .16s ease;
+}
+.citizen-result-actions button:hover{
+  background:linear-gradient(180deg,#4a3921 0%,#302719 100%);
+  border-color:#d0a65e;
+  color:#fff1d4;
+  transform:translateY(-1px);
+}
+.citizen-result-actions button:focus-visible{outline:2px solid #e7c88f;outline-offset:2px}
+.citizen-result-actions button[data-citizen-action="arrest"]{border-color:#8b4545;background:linear-gradient(180deg,#3a2222 0%,#241818 100%);color:#f0b4b4}
+.citizen-result-actions button[data-citizen-action="arrest"]:hover{border-color:#c86c6c;background:#482727;color:#ffe0e0}
+.citizen-result-actions button#citizenBackToSearch{border-color:#46515d;background:#1a2027;color:#c3cdd7}
+.citizen-result-actions button#citizenBackToSearch:hover{background:#28313b;border-color:#758494;color:#fff}
+@media(max-width:700px){.citizen-result-actions button{width:100%}}
