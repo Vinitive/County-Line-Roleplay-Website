@@ -116,5 +116,6 @@
 
 /* Founder-only CAD record controls */
 .citizen-charge-line{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:7px 0;border-top:1px solid rgba(255,255,255,.07)}
-.founder-remove-record{margin:8px 8px 2px 0!important;border-color:rgba(210,70,70,.55)!important;color:#ff9b9b!important;font-size:.72rem!important}
-.founder-remove-record:hover{background:rgba(160,35,35,.18)!important}
+.founder-remove-record{margin:8px 8px 2px 0!important;border:1px solid #a83232!important;background:linear-gradient(180deg,#702626 0%,#481919 100%)!important;color:#fff0f0!important;font-size:.72rem!important}
+.founder-remove-record:hover{border-color:#f06b6b!important;background:linear-gradient(180deg,#923333 0%,#612020 100%)!important;color:#fff!important}
+.founder-remove-record:focus-visible{outline:2px solid #ff7777!important;outline-offset:2px}
