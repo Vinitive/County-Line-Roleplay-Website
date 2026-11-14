@@ -158,7 +158,8 @@ local function buildCharacter(player)
             birthdate = charinfo.birthdate,
             gender = charinfo.gender,
             nationality = charinfo.nationality,
-            phone = charinfo.phone
+            phone = charinfo.phone,
+            licenses = (data.metadata and (data.metadata.licences or data.metadata.licenses)) or {}
         },
         money = {
             cash = tonumber(money.cash) or 0,
