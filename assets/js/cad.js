@@ -5,7 +5,7 @@ const req=async(method='GET',body={})=>{const r=await fetch(api+'/api/cad',{meth
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const note=t=>$('cadNotice').textContent=t;
 const empty=t=>'<div class="cad-empty">'+esc(t)+'</div>';
-const switchView=v=>{document.querySelectorAll('.cad-view').forEach(x=>x.classList.toggle('active',x.id==='cad-'+v));document.querySelectorAll('.cad-nav').forEach(x=>x.classList.toggle('active',x.dataset.view===v));$('cadTitle').textContent=({calls:'ACTIVE CALLS',units:'UNIT ROSTER',records:'RECORDS TERMINAL',bolos:'BOLO BOARD'})[v];};
+const switchView=v=>{document.querySelectorAll('.cad-view').forEach(x=>x.classList.toggle('active',x.id==='cad-'+v));document.querySelectorAll('.cad-nav').forEach(x=>x.classList.toggle('active',x.dataset.view===v));$('cadTitle').textContent=({calls:'ACTIVE CALLS',units:'UNIT ROSTER',records:'RECORDS TERMINAL',bolos:'BOLO BOARD',map:'MAP / LOS SANTOS'})[v];};
 document.querySelectorAll('.cad-nav').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
 async function refresh(){try{data=await req();render();note('Secure CAD session active · '+(data.officer?.name||'Authorized user'));}catch(e){note(e.message);}}
 function render(){const calls=data.calls||[],units=data.units||[],bolos=data.bolos||[];$('navCallCount').textContent=calls.length;$('metricCalls').textContent=calls.length;$('metricUnits').textContent=units.length;$('metricAvailable').textContent=units.filter(x=>x.status==='Available').length;$('metricBolos').textContent=bolos.length;
