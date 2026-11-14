@@ -10,6 +10,16 @@ local function setOpen(state)
   end
 end
 
+
+-- Always start with the NUI closed and keyboard/mouse focus released.
+AddEventHandler('onClientResourceStart', function(resourceName)
+  if resourceName ~= GetCurrentResourceName() then return end
+  isOpen = false
+  SetNuiFocus(false, false)
+  SetNuiFocusKeepInput(false)
+  SendNUIMessage({ action = 'close' })
+end)
+
 RegisterCommand(Config.Command, function()
   setOpen(not isOpen)
 end, false)
