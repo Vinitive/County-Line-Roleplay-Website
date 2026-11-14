@@ -20,6 +20,10 @@ RegisterNetEvent('clrp-cad:client:open', function()
   setOpen(true)
 end)
 
+RegisterNetEvent('clrp-cad:client:deny', function()
+  setOpen(false)
+end)
+
 RegisterNetEvent('clrp-cad:client:bootstrap', function(payload)
   SendNUIMessage({ action = 'bootstrap', data = payload })
 end)
@@ -78,4 +82,11 @@ end)
 
 RegisterNetEvent('QBCore:Client:OnPlayerUnload', function()
   if isOpen then setOpen(false) end
+end)
+
+CreateThread(function()
+  while true do
+    Wait(30000)
+    if isOpen then TriggerServerEvent('clrp-cad:server:open') end
+  end
 end)
