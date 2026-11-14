@@ -65,3 +65,13 @@ CREATE INDEX IF NOT EXISTS idx_cad_calls_status ON cad_calls(status, created_at)
 CREATE INDEX IF NOT EXISTS idx_cad_records_subject ON cad_records(subject);
 CREATE INDEX IF NOT EXISTS idx_cad_bolos_active ON cad_bolos(active, created_at);
 CREATE INDEX IF NOT EXISTS idx_cad_audit_created ON cad_audit(created_at);
+
+
+-- Map positions for active CAD incidents. Coordinates use the 8192x8192 GTA V map plane.
+CREATE TABLE IF NOT EXISTS cad_call_locations (
+  call_id TEXT PRIMARY KEY REFERENCES cad_calls(id) ON DELETE CASCADE,
+  map_x REAL NOT NULL,
+  map_y REAL NOT NULL,
+  updated_at INTEGER NOT NULL,
+  updated_by TEXT NOT NULL
+);
