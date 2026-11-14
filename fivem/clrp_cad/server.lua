@@ -65,6 +65,7 @@ RegisterNetEvent('clrp-cad:server:open', function()
   local src = source
   local access = getAccess(src)
   if not access then
+    TriggerClientEvent('clrp-cad:client:deny', src)
     TriggerClientEvent('QBCore:Notify', src, 'CAD access requires an authorized on-duty unit.', 'error')
     return
   end
