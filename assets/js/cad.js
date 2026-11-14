@@ -1,6 +1,6 @@
 (() => {
 const cfg=window.CLRP_CONFIG||{},api=String(cfg.portalApiUrl||'').replace(/\/$/,''),$=id=>document.getElementById(id);
-let data={calls:[],units:[],bolos:[],access:''},dispatchMap=null,callMarkers=new Map(),placingCall=false;
+let data={calls:[],units:[],bolos:[],access:''},dispatchMap=null,callMarkers=new Map(),placingCall=false,postalData=[];
 const req=async(method='GET',body={})=>{const r=await fetch(api+'/api/cad',{method,credentials:'include',headers:{'Accept':'application/json','Content-Type':'application/json'},...(method==='POST'?{body:JSON.stringify(body)}:{})});const b=await r.json().catch(()=>({}));if(!r.ok)throw new Error(b.error||'CAD request failed.');return b;};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const note=t=>$('cadNotice').textContent=t;
@@ -14,14 +14,75 @@ $('webUnits').innerHTML=units.length?units.map(u=>'<article class="cad-unit"><st
 $('webBolos').innerHTML=bolos.length?bolos.map(b=>'<article class="cad-bolo"><span class="cad-call-code">'+esc(b.bolo_type)+'</span><h3>'+esc(b.title)+'</h3><p>'+esc(b.description)+'</p></article>').join(''):empty('No active BOLO notices.');drawCallMarkers();
 }
 async function post(action,body){try{const r=await req('POST',{action,...body});note(r.message||'CAD updated.');await refresh();}catch(e){note(e.message);}}
-function form(title,fields,action){const controls=fields.map(f=>{if(f.type==='hidden')return '<input type="hidden" name="'+f.name+'" value="'+esc(f.value)+'">';let control='';if(f.type==='textarea')control='<textarea name="'+f.name+'" rows="4" '+(f.required?'required':'')+'></textarea>';else if(f.type==='select')control='<select name="'+f.name+'">'+f.options.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select>';else control='<input name="'+f.name+'" '+(f.required?'required':'')+'>';return '<label class="cad-field '+(f.full?'full':'')+'">'+esc(f.label)+control+'</label>';}).join('');$('cadModalBody').innerHTML='<h2>'+esc(title)+'</h2><form id="cadForm" class="cad-form-grid">'+controls+'<div class="full"><button class="btn btn-gold cad-form-submit">CREATE CALL</button></div></form>';$('cadModal').hidden=false;$('cadForm').addEventListener('submit',async e=>{e.preventDefault();await post(action,Object.fromEntries(new FormData(e.currentTarget).entries()));$('cadModal').hidden=true;});}
+function form(title,fields,action){const controls=fields.map(f=>{if(f.type==='hidden')return '<input type="hidden" name="'+f.name+'" value="'+esc(f.value)+'">';let control='';if(f.type==='textarea')control='<textarea name="'+f.name+'" rows="4" '+(f.required?'required':'')+'></textarea>';else if(f.type==='select')control='<select name="'+f.name+'">'+f.options.map(x=>'<option>'+esc(x)+'</option>').join('')+'</select>';else control='<input name="'+f.name+'" '+(f.required?'required':'')+'>';return '<label class="cad-field '+(f.full?'full':'')+'">'+esc(f.label)+control+'</label>';}).join('');$('cadModalBody').innerHTML='<h2>'+esc(title)+'</h2><form id="cadForm" class="cad-form-grid">'+controls+'<div class="full"><button class="btn btn-gold cad-form-submit">CREATE CALL</button></div></form>';$('cadModal').hidden=false;$('cadForm').addEventListener('submit',async e=>{e.preventDefault();const payload=Object.fromEntries(new FormData(e.currentTarget).entries());if(action==='createCall'&&payload.postal){payload.location=payload.location+' (Postal '+payload.postal+')';}await post(action,payload);$('cadModal').hidden=true;});}
 $('cadModalClose').addEventListener('click',()=>$('cadModal').hidden=true);
 $('webNewCall').addEventListener('click',()=>{switchView('map');placingCall=true;$('mapHint').textContent='Click the incident location on the map to continue.';note('Map placement active · Click the incident location.');});
 $('webNewReport').addEventListener('click',()=>form('NEW INCIDENT REPORT',[{name:'record_type',label:'REPORT TYPE',type:'select',options:['Incident Report','Arrest Report','Citation']},{name:'subject',label:'SUBJECT / CITIZEN ID',required:true},{name:'title',label:'REPORT TITLE',required:true},{name:'details',label:'NARRATIVE',type:'textarea',full:true,required:true}], 'createRecord'));
 $('webNewBolo').addEventListener('click',()=>form('CREATE BOLO',[{name:'bolo_type',label:'BOLO TYPE',type:'select',options:['Person','Vehicle','Other']},{name:'title',label:'SUBJECT / VEHICLE',required:true},{name:'description',label:'DESCRIPTION',type:'textarea',full:true,required:true}], 'createBolo'));
 $('mapPlaceCall').addEventListener('click',()=>{switchView('map');placingCall=true;$('mapHint').textContent='Click the incident location on the map to continue.';note('Map placement active · Click the incident location.');});
 $('mapReset').addEventListener('click',()=>{if(dispatchMap)dispatchMap.fitBounds([[0,0],[8192,8192]]);});
-function initDispatchMap(){if(dispatchMap||!window.L)return;const CRS=L.extend({},L.CRS.Simple,{transformation:new L.Transformation(1/32,0,1/32,0)});dispatchMap=L.map('clrpDispatchMap',{crs:CRS,minZoom:0,maxZoom:5,zoomControl:true,attributionControl:true});L.tileLayer('https://viruxe.github.io/gtav-map-tiles/atlas/{z}/{x}-{y}.webp',{minZoom:0,maxZoom:5,noWrap:true,bounds:[[0,0],[8192,8192]],attribution:'Map tiles © GTA V map contributors'}).addTo(dispatchMap);dispatchMap.fitBounds([[0,0],[8192,8192]]);dispatchMap.on('click',e=>{if(!placingCall)return;placingCall=false;const x=Math.max(0,Math.min(8192,e.latlng.lng)),y=Math.max(0,Math.min(8192,e.latlng.lat));$('mapHint').textContent='Location selected. Complete the call details.';form('CREATE DISPATCH CALL',[{name:'call_type',label:'CALL TYPE',required:true},{name:'location',label:'LOCATION / ADDRESS',required:true},{name:'priority',label:'PRIORITY',type:'select',options:['1 - Emergency','2 - Urgent','3 - Routine','4 - Information']},{name:'description',label:'CALL DETAILS',type:'textarea',full:true},{name:'mapX',type:'hidden',value:x.toFixed(2)},{name:'mapY',type:'hidden',value:y.toFixed(2)}],'createCall');});drawCallMarkers();}
+async function loadPostalOverlay(){
+  try{
+    const response=await fetch('assets/data/postals.json',{cache:'force-cache'});
+    if(!response.ok)throw new Error('Postal data unavailable');
+    postalData=(await response.json()).filter(p=>/^\\d{4}$/.test(String(p.code)));
+    if(!dispatchMap||!postalData.length)return;
+    const PostalLayer=L.GridLayer.extend({
+      createTile(coords){
+        const canvas=document.createElement('canvas'),size=this.getTileSize();canvas.width=size.x;canvas.height=size.y;
+        const ctx=canvas.getContext('2d');if(!ctx)return canvas;
+        const z=coords.z;if(z<2)return canvas;
+        const mapSize=256*Math.pow(2,z),startX=coords.x*256,startY=coords.y*256;
+        ctx.font=(z>=5?'700 10px':'700 9px')+' monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
+        for(let i=0;i<postalData.length;i++){
+          if(z===2&&i%8!==0)continue;if(z===3&&i%4!==0)continue;if(z===4&&i%2!==0)continue;
+          const p=postalData[i];
+          const gtaPx=((p.x+9655.77)/20357.85)*mapSize;
+          const gtaPy=((12343.94-p.y)/20357.85)*mapSize;
+          if(gtaPx<startX-30||gtaPx>startX+286||gtaPy<startY-15||gtaPy>startY+271)continue;
+          const x=gtaPx-startX,y=gtaPy-startY;
+          ctx.strokeStyle='rgba(0,0,0,.95)';ctx.lineWidth=3;ctx.strokeText(p.code,x,y);
+          ctx.fillStyle='#fff';ctx.fillText(p.code,x,y);
+        }
+        return canvas;
+      }
+    });
+    new PostalLayer({minZoom:0,maxZoom:5,noWrap:true,opacity:.92, pane:'overlayPane'}).addTo(dispatchMap);
+    $('mapHint').textContent='Four-digit postal codes loaded · Select “Place New Call” to create an incident.';
+  }catch(error){console.warn('CLRP postal map:',error);$('mapHint').textContent='Postal overlay could not be loaded.';}
+}
+function nearestPostal(mapX,mapY){
+  if(!postalData.length)return null;
+  const gtaX=(mapX/8192)*20357.85-9655.77,gtaY=12343.94-(mapY/8192)*20357.85;
+  let nearest=null,best=Infinity;
+  for(const p of postalData){const d=(p.x-gtaX)*(p.x-gtaX)+(p.y-gtaY)*(p.y-gtaY);if(d<best){best=d;nearest=p;}}
+  return nearest;
+}
+function initDispatchMap(){
+  if(dispatchMap||!window.L)return;
+  const CRS=L.extend({},L.CRS.Simple,{transformation:new L.Transformation(1/32,0,1/32,0)});
+  dispatchMap=L.map('clrpDispatchMap',{crs:CRS,minZoom:0,maxZoom:5,zoomControl:true,attributionControl:true});
+  L.tileLayer('https://viruxe.github.io/gtav-map-tiles/atlas/{z}/{x}-{y}.webp',{minZoom:0,maxZoom:5,noWrap:true,bounds:[[0,0],[8192,8192]],attribution:'Map tiles © GTA V map contributors'}).addTo(dispatchMap);
+  dispatchMap.fitBounds([[0,0],[8192,8192]]);
+  dispatchMap.on('click',e=>{
+    if(!placingCall)return;
+    placingCall=false;
+    const x=Math.max(0,Math.min(8192,e.latlng.lng)),y=Math.max(0,Math.min(8192,e.latlng.lat));
+    const postal=nearestPostal(x,y),postalCode=postal?String(postal.code):'';
+    $('mapHint').textContent='Location selected · Postal '+(postalCode||'not found')+'. Complete the call details.';
+    form('CREATE DISPATCH CALL',[
+      {name:'call_type',label:'CALL TYPE',required:true},
+      {name:'location',label:'LOCATION / ADDRESS',required:true},
+      {name:'priority',label:'PRIORITY',type:'select',options:['1 - Emergency','2 - Urgent','3 - Routine','4 - Information']},
+      {name:'description',label:'CALL DETAILS',type:'textarea',full:true},
+      {name:'postal',type:'hidden',value:postalCode},
+      {name:'mapX',type:'hidden',value:x.toFixed(2)},
+      {name:'mapY',type:'hidden',value:y.toFixed(2)}
+    ],'createCall');
+  });
+  loadPostalOverlay();
+  drawCallMarkers();
+}
 function priorityColor(p){return String(p||'').startsWith('1')?'#ef4444':String(p||'').startsWith('2')?'#f97316':String(p||'').startsWith('4')?'#3b82f6':'#eab308';}
 function drawCallMarkers(){if(!dispatchMap||!window.L)return;const active=new Set();(data.calls||[]).forEach(c=>{if(c.mapX==null||c.mapY==null)return;active.add(c.id);let marker=callMarkers.get(c.id);const color=priorityColor(c.priority);const html='<div class="cad-map-popup"><b>'+esc(c.call_number)+' · '+esc(c.call_type)+'</b><p>'+esc(c.location)+'</p><small>Priority '+esc(c.priority)+' · '+esc(c.status)+'</small><p>'+esc(c.description||'')+'</p></div>';const icon=L.divIcon({className:'cad-call-marker-wrap',html:'<span class="cad-call-marker" style="--marker-color:'+color+'"></span>',iconSize:[24,24],iconAnchor:[12,12]});if(!marker){marker=L.marker([Number(c.mapY),Number(c.mapX)],{icon,draggable:data.access==='dispatch',autoPan:true}).addTo(dispatchMap);callMarkers.set(c.id,marker);marker.on('dragend',()=>{const p=marker.getLatLng();post('moveCallBlip',{callId:c.id,mapX:p.lng,mapY:p.lat});});}else{marker.setLatLng([Number(c.mapY),Number(c.mapX)]);marker.setIcon(icon);if(marker.dragging)data.access==='dispatch'?marker.dragging.enable():marker.dragging.disable();}marker.bindPopup(html);});for(const [id,m] of callMarkers){if(!active.has(id)){dispatchMap.removeLayer(m);callMarkers.delete(id);}}}
 $('webUnitStatus').addEventListener('change',e=>post('setStatus',{status:e.target.value}));
