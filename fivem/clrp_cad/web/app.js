@@ -46,14 +46,14 @@ function initDispatchMap(){
  const crs=Object.create(L.CRS.Simple);
  const u=cfg.image[0]/((cfg.bottomRight[0]-cfg.topLeft[0])*Math.pow(2,cfg.maxZoom));
  const d=cfg.image[1]/((cfg.bottomRight[1]-cfg.topLeft[1])*Math.pow(2,cfg.maxZoom));
- crs.transformation=new L.Transformation(u,-u*cfg.topLeft[0],d,-d*cfg.topLeft[1]);
+ crs.transformation=new L.Transformation(u,-u*cfg.topLeft[0],-d,d*cfg.topLeft[1]);
  crs.wrapLng=[cfg.topLeft[0],cfg.bottomRight[0]];crs.wrapLat=[cfg.bottomRight[1],cfg.topLeft[1]];crs.infinite=false;crs.scale=z=>Math.pow(2,z);crs.zoom=s=>Math.log(s)/Math.LN2;crs.distance=(a,b)=>{const dx=b.lng-a.lng,dy=b.lat-a.lat;return Math.sqrt(dx*dx+dy*dy);};
  const bounds=[[-5100,-4140],[8400,4860]];
  dispatchMap=L.map('clrpDispatchMap',{crs,center:[1650,450],zoom:3,minZoom:0,maxZoom:cfg.maxZoom,maxNativeZoom:cfg.maxZoom,maxBounds:bounds,maxBoundsViscosity:1.0,zoomControl:true,attributionControl:false,preferCanvas:true,noWrap:true});
  L.tileLayer('https://postal-code-map-tile.pages.dev/tiles/{z}/{x}/{y}.png',{tileSize:256,minZoom:0,maxZoom:cfg.maxZoom,maxNativeZoom:cfg.maxZoom,noWrap:true,bounds,attribution:'Four-digit postal map · Virus_City / Acc-Off'}).addTo(dispatchMap);
  dispatchMap.setView([1650,450],3);
  drawCallMarkers();
- fetch('postals.json').then(r=>{if(!r.ok)throw new Error('Postal coordinate data unavailable');return r.json();}).then(rows=>{postalData=rows.filter(p=>/^\d{4}$/.test(String(p.code)));$('mapHint').textContent='Postal map ready · Dispatch can place calls by selecting a location.';}).catch(err=>{console.warn(err);$('mapHint').textContent='Map loaded; postal lookup data unavailable.';});
+ fetch(`https://cfx-nui-${GetParentResourceName()}/web/postals.json`).then(r=>{if(!r.ok)throw new Error('Postal coordinate data unavailable');return r.json();}).then(rows=>{postalData=rows.filter(p=>/^\d{4}$/.test(String(p.code)));$('mapHint').textContent='Postal map ready · Dispatch can place calls by selecting a location.';}).catch(err=>{console.error('[CLRP CAD] Postal data failed to load:',err);$('mapHint').textContent='Map loaded; postal lookup failed. Check that web/postals.json is installed.';});
  dispatchMap.on('click',e=>{if(!placingCall)return;placingCall=false;const x=e.latlng.lng,y=e.latlng.lat,postal=nearestPostal(x,y);$('mapHint').textContent='Selected postal: '+(postal?postal.code:'not found')+'. Complete call details.';openForm('CREATE DISPATCH CALL',[{name:'call_type',label:'CALL TYPE',required:true},{name:'location',label:'LOCATION / ADDRESS',required:true},{name:'priority',label:'PRIORITY',type:'select',options:['1 - Emergency','2 - Urgent','3 - Routine','4 - Information']},{name:'description',label:'CALL DETAILS',type:'textarea',full:true},{name:'postal',type:'hidden',value:postal?postal.code:''},{name:'mapX',type:'hidden',value:x.toFixed(2)},{name:'mapY',type:'hidden',value:y.toFixed(2)}],'createCall');});
  $('mapPlaceCall').addEventListener('click',startMapPlacement);$('mapReset').addEventListener('click',()=>dispatchMap.setView([1650,450],3));
 }
