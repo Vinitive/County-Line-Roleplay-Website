@@ -11,13 +11,30 @@ local function setOpen(state)
 end
 
 
--- Always start with the NUI closed and keyboard/mouse focus released.
-AddEventHandler('onClientResourceStart', function(resourceName)
-  if resourceName ~= GetCurrentResourceName() then return end
+-- Force the NUI closed after its browser has finished loading. FiveM can start
+-- the Lua resource before the NUI page is ready to receive the first message.
+local function forceCloseNui()
   isOpen = false
   SetNuiFocus(false, false)
   SetNuiFocusKeepInput(false)
   SendNUIMessage({ action = 'close' })
+end
+
+AddEventHandler('onClientResourceStart', function(resourceName)
+  if resourceName ~= GetCurrentResourceName() then return end
+  forceCloseNui()
+  CreateThread(function()
+    Wait(500)
+    forceCloseNui()
+    Wait(1000)
+    forceCloseNui()
+  end)
+end)
+
+-- Also release focus and hide the page when the resource is stopped/restarted.
+AddEventHandler('onClientResourceStop', function(resourceName)
+  if resourceName ~= GetCurrentResourceName() then return end
+  forceCloseNui()
 end)
 
 RegisterCommand(Config.Command, function()
