@@ -25,3 +25,7 @@ CREATE INDEX IF NOT EXISTS idx_cad_citizen_licenses_citizen
 ON cad_citizen_licenses(citizenid, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cad_citizen_licenses_active_type
 ON cad_citizen_licenses(citizenid, license_type) WHERE status = 'Active';
+
+-- Enforce unique automatically generated license numbers
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cad_citizen_licenses_number
+ON cad_citizen_licenses(license_number) WHERE license_number <> '';
