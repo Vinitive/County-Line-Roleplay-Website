@@ -160,6 +160,36 @@ const handleCadAction = async (env, action, body, officer, access) => {
     }
     const x=await env.DB.prepare("SELECT record_type,subject,title,details,created_at FROM cad_records WHERE subject LIKE ? OR title LIKE ? ORDER BY created_at DESC LIMIT 30").bind("%"+q+"%","%"+q+"%").all();rows.push(...(x.results||[]).map(v=>({type:"report",name:v.title,details:v.record_type+" · "+v.subject+" · "+v.details,created_at:v.created_at})));await audit("records.search",null,q);return {records:rows};
   }
+  if(action==="getCitizenProfile"){
+    if(!leo)return {error:"Citizen profiles are restricted to Law Enforcement."};
+    const citizenid=String(body.citizenid||"").trim();
+    if(!/^[A-Za-z0-9_-]{2,64}$/.test(citizenid))return {error:"A valid citizen ID is required."};
+    const citizen=await env.DB.prepare("SELECT citizenid,character_name,payload,is_online,last_seen,updated_at,first_joined,playtime_seconds,sessions_count FROM portal_characters WHERE citizenid=?").bind(citizenid).first();
+    if(!citizen)return {error:"Citizen profile not found."};
+    let snapshot={};try{snapshot=JSON.parse(citizen.payload||"{}");}catch(_){}
+    const [arrests,charges,reports]=await Promise.all([
+      env.DB.prepare("SELECT id,narrative,officer_name,total_roleplay_fine,total_roleplay_jail_minutes,created_at FROM cad_arrests WHERE citizenid=? ORDER BY created_at DESC LIMIT 100").bind(citizenid).all(),
+      env.DB.prepare("SELECT ac.arrest_id,ac.charge_code,ac.charge_title,ac.offense_class,ac.statute,ac.roleplay_fine,ac.roleplay_jail_minutes,a.created_at FROM cad_arrest_charges ac INNER JOIN cad_arrests a ON a.id=ac.arrest_id WHERE a.citizenid=? ORDER BY a.created_at DESC LIMIT 200").bind(citizenid).all(),
+      env.DB.prepare("SELECT id,record_type,title,details,officer_name,created_at FROM cad_records WHERE subject=? OR subject LIKE ? ORDER BY created_at DESC LIMIT 100").bind(citizenid,"%"+citizenid+"%").all()
+    ]);
+    const records=snapshot.records||{},profile=snapshot.profile||{};
+    const licenses=profile.licenses||snapshot.licenses||snapshot.metadata?.licences||snapshot.metadata?.licenses||null;
+    const vehicles=Array.isArray(snapshot.vehicles)?snapshot.vehicles:[];
+    const properties=Array.isArray(snapshot.houses)?snapshot.houses:(Array.isArray(snapshot.properties)?snapshot.properties:[]);
+    const arrestsList=arrests.results||[];
+    const chargeList=charges.results||[];
+    return {
+      citizen:{citizenid:citizen.citizenid,name:citizen.character_name,profile,job:snapshot.job||{},gang:snapshot.gang||{},online:Boolean(citizen.is_online)&&Boolean(citizen.last_seen)&&now-Number(citizen.last_seen)<90000,lastSeen:citizen.last_seen,firstJoined:citizen.first_joined,playtimeSeconds:Number(citizen.playtime_seconds)||0,sessionsCount:Number(citizen.sessions_count)||0,updatedAt:citizen.updated_at},
+      licenses,vehicles,properties,
+      arrests:arrestsList.map(a=>({...a,charges:chargeList.filter(c=>c.arrest_id===a.id)})),
+      legacyArrests:Array.isArray(records.arrests)?records.arrests:[],
+      legacyCharges:Array.isArray(records.charges)?records.charges:[],
+      reports:reports.results||[],
+      warrants:Array.isArray(records.warrants)?records.warrants:[],
+      registeredWeapons:Array.isArray(snapshot.registeredWeapons)?snapshot.registeredWeapons:(Array.isArray(snapshot.weaponsRegistered)?snapshot.weaponsRegistered:[]),
+      dataAvailability:{licenses:Boolean(licenses),vehicles:true,properties:true,arrests:true,warrants:false,registeredWeapons:false}
+    };
+  }
   if(action==="createRecord"){
     if(!leo)return {error:"Only Law Enforcement can create reports."};const type=String(body.record_type||"Incident Report").slice(0,50),subject=String(body.subject||"").trim().slice(0,120),title=String(body.title||"").trim().slice(0,150),details=String(body.details||"").trim().slice(0,5000);if(!subject||!title||!details)return {error:"Subject, title, and narrative are required."};
     const id=crypto.randomUUID();await env.DB.prepare("INSERT INTO cad_records (id,record_type,subject,title,details,officer_citizenid,officer_name,created_at) VALUES (?,?,?,?,?,?,?,?)").bind(id,type,subject,title,details,officer.citizenid,officer.name,now).run();await audit("record.created",id,type+":"+subject);return {message:type+" saved.",refresh:true};
