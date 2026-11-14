@@ -495,7 +495,7 @@ export default {
         }
 
         if (url.pathname === "/api/server/cad") {
-          const officer=body.officer||{}, access=body.access==="leo"||body.access==="dispatch"?body.access:"";
+          const officer=body.officer||{}, access=body.access==="founder"||body.access==="leo"||body.access==="dispatch"?body.access:"";
           if(!officer.citizenid||!officer.name||!access)return json({error:"Invalid trusted unit identity."},400);
           const result=await handleCadAction(env,String(body.action||"bootstrap"),body,officer,access);
           return json(result,result.error?400:200);
